@@ -31,6 +31,7 @@ D:\Workspace\msgpipe\
       browsers\        Playwright Chromium（PLAYWRIGHT_BROWSERS_PATH）
       tmp\             Playwright 临时目录（TEMP/TMP）
     cxmcp\             学习通 IM：ChaoXingMessageMCP + Edge profile + messages\ + dump.mjs
+    wechat-cli\        微信 CLI 源码快照（Apache-2.0，未改代码，只重装 deps）
     wecom\             企业微信：wecom.py（解密+查询）、find_key.py、wxwork_crypto.py 等
   state\
     msgscan.json       四线水位 watermark_wechat / watermark_wecom / watermark_chaoxing
@@ -123,7 +124,7 @@ D:/Python/Python315/python.exe -m pip install -i https://mirrors.aliyun.com/pypi
 
 ### 3. 微信线
 
-1. 装 wechat-cli-plus 到 `~/.wechat-cli`：配置与密钥已快照在 `state\wechat\`，先 `./scripts/restore-wechat-cli.cmd` 还原，再装 deps；没有快照时才用 `syskuku/wechat-todo` 的安装器（`node bin/wechat-todo.js --skip-init`）。最后要有 `~/.wechat-cli/wxcli.cmd` 与 `all_keys.json`。
+1. 装 wechat-cli-plus 到 `~/.wechat-cli`：仓库里的 `tools/wechat-cli/` 就是它的完整源码快照（Apache-2.0，未改一行），可以直接 `cp -r tools/wechat-cli ~/.wechat-cli/tool` 而不用再下载；配置与密钥已快照在 `state\wechat\`，先 `./scripts/restore-wechat-cli.cmd` 还原，再装 deps；没有快照时才用 `syskuku/wechat-todo` 的安装器（`node bin/wechat-todo.js --skip-init`）。最后要有 `~/.wechat-cli/wxcli.cmd` 与 `all_keys.json`。
 2. **必须重装 deps**：仓库自带的 `vendor/wechat-cli/deps` 是 **win_arm64** 轮子，x64 机器上 `import Crypto` 会报 `[WinError 193] 不是有效的 Win32 应用程序`。重装：
 
 ```bash
