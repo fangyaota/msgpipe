@@ -17,6 +17,7 @@
 状态文件：D:/Workspace/msgpipe/state/msgscan.json  {"watermark_wechat": iso, "watermark_wecom": iso}
 """
 import argparse
+import io
 import json
 import os
 import subprocess
@@ -530,22 +531,39 @@ def cmd_doctor(a):
 
 
 def cmd_sources(a):
+    """六条源一次点名：三条消息线（有水位）+ 三条作业/任务线。"""
     st = load_state()
     print(f"水位  微信={st.get('watermark_wechat') or '(未设)'}  "
           f"企微={st.get('watermark_wecom') or '(未设)'}  "
           f"学习通={st.get('watermark_chaoxing') or '(未设)'}")
+    print("— 消息线 —")
     for s in ("wechat", "wecom", "chaoxing"):
         try:
             if s == "wechat":
-                n = len(wechat_rows(None, 1))
+                wechat_rows(None, 1)
             elif s == "wecom":
-                n = len(wecom_rows(None, 1))
+                wecom_rows(None, 1)
             else:
-                n = len(chaoxing_rows(None, 1))
+                chaoxing_rows(None, 1)
             print(f"{s}: OK（最近 1 条读数正常）")
         except SystemExit as e:
             print(f"{s}: 不可用 — {e}")
-    print(f"xxt: {'报告在 ' + XXT_REPORT if os.path.isfile(XXT_REPORT) else '没有巡检报告'}")
+    print("— 作业线 —")
+    print(f"xxt: {'OK（报告在 ' + XXT_REPORT + '）' if os.path.isfile(XXT_REPORT) else '不可用 — 没有巡检报告，先跑 assignments --refresh'}")
+    # 数你最灵：只看登录态，不联网
+    if os.path.isfile(BSK):
+        print("smartestu: OK（走 bsk，用 Edge 里已登录的会话）")
+    elif os.path.isdir(SX_PROFILE):
+        print("smartestu: 已装 Playwright profile，未实测（assignments --source smartestu 可验）")
+    else:
+        print("smartestu: 不可用 — 跑 scripts\\smartestu.cmd --login 登录一次")
+    print("— 任务线 —")
+    prof = os.path.join(os.environ.get("USERPROFILE") or os.path.expanduser("~"),
+                        ".dsh", "profiles", "web", "cordis.patch.yml")
+    if os.path.isfile(prof) and "mcp-dida365" in io.open(prof, encoding="utf-8", errors="ignore").read():
+        print("dida: OK（profile 里已注册 mcp-dida365）")
+    else:
+        print("dida: 未接入 — 不想自动建任务可以不管")
 
 
 def cmd_sessions(a):
