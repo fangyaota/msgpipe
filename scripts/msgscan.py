@@ -14,7 +14,7 @@
   advance --at AT             把水位推进到 AT
 
 通用参数：--source wechat,wecom / --limit N / --json
-状态文件：D:\Workspace\msgpipe\state\msgscan.json  {"watermark_wechat": iso, "watermark_wecom": iso}
+状态文件：D:/Workspace/msgpipe/state/msgscan.json  {"watermark_wechat": iso, "watermark_wecom": iso}
 """
 import argparse
 import json
@@ -258,6 +258,9 @@ SX_URL = "https://smartestu.cn/assignment"
 SX_JS = (r"JSON.stringify(Array.from(document.querySelectorAll('table tbody tr'))"
          r".map(tr=>Array.from(tr.cells).map(td=>td.innerText.trim().replace(/\s+/g,' '))))")
 SX_COUNT_JS = "document.querySelectorAll('table tbody tr').length"
+SX_SCRIPT = os.path.join(PROJ, "scripts", "smartestu_assignments.py")
+SX_CMD = os.path.join(PROJ, "scripts", "smartestu.cmd")
+SX_PROFILE = os.path.join(PROJ, "state", "smartestu", "profile")
 
 
 def _bsk(*args, timeout=90):
@@ -274,8 +277,60 @@ def _bsk_json(*args, timeout=90):
         raise SystemExit(f"bsk {' '.join(args[:2])} 失败：{(err or out).strip()[:300]}")
 
 
+def _smartestu_playwright():
+    """读数你最灵作业表（独立 Playwright profile，不需要 browser-skill）。"""
+    if not os.path.isfile(SX_SCRIPT):
+        raise SystemExit(f"缺脚本：{SX_SCRIPT}")
+    py = os.environ.get("MSGPIPE_PY")
+    if not py or not os.path.isfile(py):
+        cand = os.path.join(PROJ, "tools", "xxt", "chaoxing-agent-cli-main", ".venv",
+                            "Scripts", "python.exe")
+        py = cand if os.path.isfile(cand) else sys.executable
+    env = dict(os.environ, PYTHONIOENCODING="utf-8",
+               TEMP=os.path.join(PROJ, "state", "xxt", "tmp"),
+               TMP=os.path.join(PROJ, "state", "xxt", "tmp"),
+               PLAYWRIGHT_BROWSERS_PATH=os.path.join(PROJ, "tools", "xxt", "browsers"))
+    p = subprocess.run([py, SX_SCRIPT], capture_output=True, text=True,
+                       encoding="utf-8", errors="replace", timeout=300,
+                       env=env, stdin=subprocess.DEVNULL)
+    if p.returncode == 3:
+        raise SystemExit("数你最灵未登录：先跑 scripts\\smartestu.cmd --login")
+    if p.returncode != 0:
+        raise SystemExit((p.stderr or p.stdout).strip()[:300])
+    try:
+        raw = json.loads(p.stdout[p.stdout.index("["):])
+    except Exception:
+        raise SystemExit("数你最灵返回内容无法解析")
+    import re as _re
+    out = []
+    for cells in raw:
+        if len(cells) < 4:
+            continue
+        course, name, span, status = cells[0], cells[1], cells[2], cells[3]
+        m = _re.search(r"结束时间\s*(\d{4}-\d{2}-\d{2})\s*(\d{2}:\d{2})", span)
+        due = f"{m.group(1)} {m.group(2)}" if m else ""
+        stat = "未交" if ("未提交" in status or "未完成" in status) else "已完成"
+        out.append((stat, course, name, " ".join(x for x in (due, status) if x)[:120]))
+    out.sort(key=lambda r: (r[0] != "未交", r[3]))
+    return out
+
+
 def smartestu_assignments():
-    """读数你最灵作业表。用浏览器里已登录的会话，不新建登录。
+    """数你最灵派发：先试 browser-skill（复用已登录的 Edge），不行再用独立 Playwright profile。"""
+    first = None
+    if os.path.isfile(BSK):
+        try:
+            return _smartestu_bsk()
+        except SystemExit as e:
+            first = e
+    try:
+        return _smartestu_playwright()
+    except SystemExit as e:
+        raise SystemExit(f"{e}" + (f"（bsk 也失败：{first}）" if first else ""))
+
+
+def _smartestu_bsk():
+    """读数你最灵作业表（browser-skill 路线）。用浏览器里已登录的会话，不新建登录。
 
     用户 2026-11-15 定：既然已自动化，每轮都查（不再等公众号新消息）。
 

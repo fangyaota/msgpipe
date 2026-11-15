@@ -10,6 +10,7 @@
 
 # 凭据与登录态：任何 key/token/cookie 都不进版本库
 state/
+state/smartestu/
 tools/*/user-profile/
 tools/*/state/
 tools/*/messages/

@@ -97,19 +97,19 @@ cd /d/Workspace/msgpipe
 | 企业微信 | WXWork 已登录并在运行 | `tools/wecom/find_key.py`（弹一次 UAC 扫内存拿 key） | `wecom.py refresh` 报 `SQLITE_NOTADB` / 解出 0 条 | 重跑 `find_key.py --out state/wecom/key.txt` 再 `refresh` |
 | 学习通（作业） | 学习通账号 | `tools/xxt/xxt.cmd auth --headed` 扫二维码（也可账号密码，但扫码更稳） | 退出码 `3` = LOGIN_TIMEOUT，`4` = PAGE_UNRECOGNIZED | 重跑 `auth --headed` |
 | 学习通（消息） | 同一个学习通账号 | `scripts\seed-cxmcp.cmd`：弹出 Edge 登录一次，脚本把会话 cookie 的 `expires` 改成一年 | `dump.mjs` 报未登录，或 `--source chaoxing` 出 0 条 | 再跑一次 `seed-cxmcp.cmd` |
-| 数你最灵 | 学校 + 学号 + 密码 | 不用脚本：bsk 开可见窗口时在同一 Edge 里登一次，之后复用该 profile | 页面跳回登录表单，`assignments` 报解析失败 | 在 Agent Window 里手动登一次 |
+| 数你最灵 | 学校 + 学号 + 密码 | `scripts\smartestu.cmd --login` 一次（不需要 browser-skill）；装了 bsk 则直接复用 Edge 会话 | 页面跳回登录表单，`assignments` 报「未登录」 | 重跑 `--login` |
 | 滴答清单 | 个人令牌 `dp_…` | `https://developer.dida365.com` 生成，写进 `state/dsh/dida-token.txt`，跑 `scripts\install-mcp.cmd --apply` | MCP 工具在，但一调就 `401 invalid_token` | 换令牌，重跑 install-mcp |
 
 几条经验：
 
 - **先检查，再折腾**：`scripts\seed-cxmcp.cmd --check` 只探测不改任何东西；学习通作业线用 `xxt.cmd doctor`；数你最灵用 `msgscan.cmd assignments --source smartestu`。
-- **登录态都是文件**：微信在 `~/.wechat-cli/all_keys.json`，企微在 `state/wecom/key.txt`，学习通作业在 `state/xxt/session.enc`，学习通消息在 `tools/cxmcp/user-profile/`，数你最灵在 Edge 的默认 profile 里。备份/迁移就是拷这些。
+- **登录态都是文件**：微信在 `~/.wechat-cli/all_keys.json`，企微在 `state/wecom/key.txt`，学习通作业在 `state/xxt/session.enc`，学习通消息在 `tools/cxmcp/user-profile/`，数你最灵在 `state/smartestu/profile/` 或 bsk 用的 Edge profile 里。备份/迁移就是拷这些。
 - **cxmcp 的 `config.json` 支持填手机号密码**，本项目故意留占位符——写进文件迟早泄露，用 `seed-cxmcp.cmd` 扫码一次更省事。
 - **不要提交登录态**：`state/`、`tools/*/user-profile/`、`*/messages/` 都已在 `.gitignore` 里。
 
 ## 装到一台新机器（或新 DSH）
 
-前提：Windows 10/11 **x64**；Python ≥3.12（本项目在 `D:\Python\Python315\python.exe`，3.15.0rc2 上验过）；Node ≥20（本机 v24.19.0）；微信、企业微信、学习通三个客户端都已装好并登录过；有一份能用的滴答账号。
+前提：Windows 10/11 **x64**；Python ≥3.12（本项目在 `D:\Python\Python315\python.exe`，3.15.0rc2 上验过）；Node ≥20（本机 v24.19.0）；微信、企业微信、学习通三个客户端都已装好并登录过（browser-skill 不是必需）；有一份能用的滴答账号。
 
 目标：`msgscan.cmd sources` 四条线全绿，`msgscan.cmd since` 能出消息，`msgscan.cmd assignments` 能列作业。
 
@@ -123,7 +123,7 @@ cd /d/Workspace/msgpipe
 | wechat-cli-plus | `~/.wechat-cli` | 微信线 | 否 |
 | Playwright Chromium | `tools/xxt/browsers` | 学习通作业线 | 否 |
 | playwright-core | `tools/cxmcp/node_modules` | 学习通消息线 | 否 |
-| bsk 守护进程 | `%LOCALAPPDATA%\BrowserSkill\bin\bsk.exe` | 数你最灵 | 否 |
+| bsk 守护进程（可选） | `%LOCALAPPDATA%\BrowserSkill\bin\bsk.exe` | 数你最灵的前一条路线；没有就用 Playwright | 否 |
 | 企业微信库 key | `state/wecom/key.txt` | 企微线 | **是，一次 UAC** |
 
 ### 1. 落地目录
@@ -247,15 +247,26 @@ async function openMessages(page) { await page.goto(WEBIM_URL, {waitUntil:'domco
 
 ### 7. 数你最灵（smartestu）
 
-需要三样：browser-skill 的守护进程、Edge 里已登录的 `smartestu.cn` 会话、`bsk.exe` 在 `%LOCALAPPDATA%\BrowserSkill\bin\`。
+**不需要 browser-skill**（没有也能用）。两条路线，`msgscan assignments` 会自动挑：
+
+- **Playwright 路线（默认，任何人都能用）**：用自己的持久化 profile `state/smartestu/profile`，登录一次即可
+
+```bash
+./scripts/smartestu.cmd --check     # 只探测：已登录会打印读到几行
+./scripts/smartestu.cmd --login     # 开可见窗口登录一次（学校 + 学号 + 密码）
+```
+
+之后每轮无头读取，约 3-5 秒，不开窗口；登录态失效会提示重跑 `--login`。
+
+- **browser-skill 路线（机器上装了 bsk 才走）**：复用 Edge 里已登录的会话，开一个 `--focus` 可见窗口读完即关
 
 ```bash
 export BSK_AUTO_START=0
-"$LOCALAPPDATA/BrowserSkill/bin/bsk.exe" daemon start --foreground   # 必须常驻；前台跑在后台任务里
-"$LOCALAPPDATA/BrowserSkill/bin/bsk.exe" status --json               # 期望列出 edge 实例、version_skew 可能为 true
+"$LOCALAPPDATA/BrowserSkill/bin/bsk.exe" daemon start --foreground   # 必须常驻
+"$LOCALAPPDATA/BrowserSkill/bin/bsk.exe" status --json               # 期望列出 edge 实例
 ```
 
-第一次要先在 Edge 里手动登录一次 `https://smartestu.cn/assignment`，之后 `assignments` 复用这个登录态，每轮开一个 `--focus` 可见窗口读完即关。
+优先顺序：**有 bsk 就先试 bsk，失败或没装再退回 Playwright**。两条都不通时 `assignments` 只跳过数你最灵这一行，不影响其它五源。
 
 ### 8. 接到 DSH
 
