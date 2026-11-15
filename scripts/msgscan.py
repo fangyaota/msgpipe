@@ -71,9 +71,14 @@ def parse_at(s, default=None):
 # ---------------------------------------------------------------- 微信
 def wechat_rows(cutoff=None, limit=None):
     """返回 [(datetime, conv, sender, text)]，按时间升序"""
+    if not os.path.isdir(WECHAT_SCRIPTS):
+        raise SystemExit("微信线没装：先跑 scripts\\install-skills.cmd 装 wechat-local 技能")
     sys.path.insert(0, WECHAT_SCRIPTS)
     import sqlite3
-    import search_all as S  # noqa: E402
+    try:
+        import search_all as S  # noqa: E402
+    except ModuleNotFoundError as e:
+        raise SystemExit(f"微信线依赖缺失（{e}）：重跑 scripts\\install-skills.cmd")
 
     try:
         zstd = S.load_zstd()
@@ -435,6 +440,95 @@ def gather(sources, cutoff, limit):
 
 
 # ---------------------------------------------------------------- 命令
+def cmd_doctor(a):
+    """逐条线自检：依赖 / 登录态 / 水位。缺哪条就跳过哪条，不影响其它线。"""
+    deep = getattr(a, "deep", False)
+    ok = skip = bad = 0
+    st = load_state()
+
+    def line(name, status, need, fix):
+        nonlocal ok, skip, bad
+        icon = {"ok": "[OK]  ", "skip": "[--]  ", "bad": "[!!]  "}[status]
+        if status == "ok":
+            ok += 1
+        elif status == "skip":
+            skip += 1
+        else:
+            bad += 1
+        print(f"{icon}{name:<22} {need}")
+        if fix and status != "ok":
+            print(f"        → {fix}")
+
+    # 微信
+    if not os.path.isdir(WECHAT_SCRIPTS):
+        line("微信", "skip", "未安装（不需要微信可保持这样）", "scripts\\install-skills.cmd")
+    elif not os.path.isfile(os.path.join(HOME, ".wechat-cli", "all_keys.json")):
+        line("微信", "skip", "缺密钥（微信没登录过或没 init）", "cd ~/.wechat-cli && ./wxcli.cmd init")
+    else:
+        try:
+            wechat_rows(None, 1)
+            line("微信", "ok", "可读", "")
+        except SystemExit as e:
+            line("微信", "bad", str(e)[:90], "看 README 第 3 步")
+
+    # 企微
+    if not os.path.isfile(os.path.join(WECOM_SCRIPTS, "find_key.py")):
+        line("企业微信", "skip", "未安装（不需要可保持这样）", "")
+    elif not os.path.isfile(os.path.join(STATE_DIR, "wecom", "key.txt")):
+        line("企业微信", "skip", "缺解密 key（还没抓过）", "python tools/wecom/find_key.py（一次 UAC）")
+    else:
+        try:
+            wecom_rows(None, 1)
+            line("企业微信", "ok", "可读", "")
+        except SystemExit as e:
+            line("企业微信", "bad", str(e)[:90], "重抓 key：tools/wecom/find_key.py")
+
+    # 学习通消息
+    if not os.path.isdir(os.path.join(CXMCP_DIR, "node_modules")):
+        line("学习通消息", "skip", "未安装（不需要可保持这样）", "cd tools/cxmcp && npm install")
+    elif not os.path.isfile(CXMCP_INDEX):
+        line("学习通消息", "skip", "还没同步过", "scripts\\seed-cxmcp.cmd")
+    else:
+        try:
+            chaoxing_rows(None, 1)
+            line("学习通消息", "ok", "可读", "")
+        except SystemExit as e:
+            line("学习通消息", "bad", str(e)[:90], "scripts\\seed-cxmcp.cmd")
+
+    # 学习通作业
+    if not os.path.isfile(XXT_REPORT):
+        line("学习通作业", "skip", "还没巡检过", "scripts\\msgscan.cmd assignments --refresh --source xxt")
+    else:
+        line("学习通作业", "ok", "有巡检报告", "")
+
+    # 数你最灵
+    if os.path.isfile(BSK) or (os.path.isdir(SX_PROFILE) and os.listdir(SX_PROFILE)):
+        if deep:
+            try:
+                rows = smartestu_assignments()
+                line("数你最灵", "ok", f"可读（{len(rows)} 条）", "")
+            except SystemExit as e:
+                line("数你最灵", "bad", str(e)[:90], "scripts\\smartestu.cmd --login")
+        else:
+            line("数你最灵", "ok", "有登录态（加 --deep 实测读取）", "")
+    else:
+        line("数你最灵", "skip", "未登录（不需要可保持这样）", "scripts\\smartestu.cmd --login")
+
+    # 滴答 MCP
+    prof = os.path.expanduser(os.path.join(HOME, ".dsh", "profiles", "web", "cordis.patch.yml"))
+    if os.path.isfile(prof) and "mcp-dida365" in open(prof, encoding="utf-8", errors="replace").read():
+        line("滴答 MCP", "ok", "profile 里已注册", "")
+    else:
+        line("滴答 MCP", "skip", "未注册（只出文本清单也能用）", "scripts\\install-mcp.cmd --apply")
+
+    print(f"\n水位  微信={st.get('watermark_wechat') or '(未设)'}  "
+          f"企微={st.get('watermark_wecom') or '(未设)'}  "
+          f"学习通={st.get('watermark_chaoxing') or '(未设)'}")
+    print(f"小结  可用 {ok} 条 / 跳过 {skip} 条 / 待修 {bad} 条"
+          f"（跳过 = 你没装，正常；待修 = 装了但坏了）")
+    return 0 if bad == 0 else 1
+
+
 def cmd_sources(a):
     st = load_state()
     print(f"水位  微信={st.get('watermark_wechat') or '(未设)'}  "
@@ -489,6 +583,9 @@ def cmd_since(a):
     emit(rows, a.json)
     if not a.json:
         print(f"[msgscan] {len(rows)} 条，起点 {cutoff or '全部'}", file=sys.stderr)
+        if not rows:
+            print("[msgscan] 一条也没读到——如果某条线没装，属正常；跑 "
+                  "`msgscan.cmd doctor` 看现在能用哪几条", file=sys.stderr)
 
 
 def cmd_search(a):
@@ -520,6 +617,10 @@ def cmd_assignments(a):
     if a.json:
         print(json.dumps([{"status": r[0], "course": r[1], "title": r[2],
                            "extra": r[3]} for r in rows], ensure_ascii=False, indent=2))
+        return
+    if not rows:
+        print("（两条作业线都没读到：学习通需要先 --refresh 巡检，数你最灵需要先 --login）\n"
+              "  跑 `msgscan.cmd doctor` 看具体缺什么", file=sys.stderr)
         return
     for st, course, title, extra in rows:
         print(f"{st} | {course} | {title} | {extra}".rstrip(" |"))
@@ -573,6 +674,10 @@ def main():
     p.add_argument("--source", default="all",
                    help="all | xxt | smartestu（默认 both；数你最灵会开一个可见的 Agent 窗口，约 10 秒）")
     p.set_defaults(func=cmd_assignments)
+
+    p = sub.add_parser("doctor", help="逐条线自检（缺哪条就跳过哪条）")
+    p.add_argument("--deep", action="store_true", help="真的去读一次（数你最灵会开窗口）")
+    p.set_defaults(func=cmd_doctor)
 
     p = sub.add_parser("advance", help="推进水位")
     p.add_argument("--at", required=True)
