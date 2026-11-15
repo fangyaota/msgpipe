@@ -65,7 +65,7 @@ cd /d/Workspace/msgpipe
 
 数你最灵（`smartestu.cn`）不是独立数据源，是 `assignments` 里额外开一个可见浏览器窗口读的作业表。
 
-## 打包了什么、没打包什么
+## 打包了什么
 
 **已打包进本项目**
 
@@ -78,14 +78,6 @@ cd /d/Workspace/msgpipe
 | 学习通登录态 | `state\xxt\session.enc,session.key` | 加密存储，换机器可直接用 |
 | 四线水位 | `state\msgscan.json` | 断点，决定下一轮从哪扫 |
 | 作业巡检结果 | `tools\xxt\courses_report.json` | `assignments` 直接读它 |
-
-**不在本项目内（有意为之）**
-
-- `%USERPROFILE%\.dsh\skills\`：DSH 只从这个目录发现技能，源文件在这边、装过去就行。
-- `~/.wechat-cli/deps`（13 MB）：第三方预编译依赖，本机架构相关，重新 pip 装更稳。
-- `C:\Users\Apple\Documents\WXWork\...\Data`：企业微信自己的加密库，只读解密，不搬。
-- `%LOCALAPPDATA%\BrowserSkill\bin\bsk.exe`：浏览器插件自带，装插件时一起装。
-- `D:\Workspace\_cx`（242 MB）：早期逆学习通 asar 的临时解包，已无用，可删。
 
 ## 登录与凭据
 
