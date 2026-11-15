@@ -178,6 +178,8 @@ def wecom_rows(cutoff=None, limit=None):
 # ---------------------------------------------------------------- 学习通
 def chaoxing_rows(cutoff=None, limit=None):
     """学习通 IM 消息（课程群聊）。走 _cxmcp 的 dump.mjs，按 syncTtlSeconds 增量。"""
+    if not os.path.isfile(CXMCP_DUMP):
+        raise SystemExit("学习通消息线未安装：缺 tools/cxmcp/dump.mjs（先在 tools/cxmcp 里 npm install，见 README 第 6 步）")
     node = shutil.which("node") or "C:/Program Files/nodejs/node.exe"
     if not os.path.exists(CXMCP_DUMP):
         raise SystemExit(f"没有 {CXMCP_DUMP}")
@@ -190,7 +192,13 @@ def chaoxing_rows(cutoff=None, limit=None):
                             stdin=subprocess.DEVNULL)
     out = proc.stdout.decode("utf-8", "replace").strip()
     if not out:
-        err = proc.stderr.decode("utf-8", "replace").strip().splitlines()[-3:]
+        raw = proc.stderr.decode("utf-8", "replace")
+        if "Cannot find module" in raw or "ERR_MODULE_NOT_FOUND" in raw:
+            raise SystemExit("学习通消息线依赖没装：在 tools/cxmcp 里跑 npm install"
+                             "（README 第 6 步），再跑 seed-cxmcp.cmd 准备登录态")
+        if "not logged in" in raw.lower() or "登录" in raw:
+            raise SystemExit("学习通消息线未登录：跑 scripts\\seed-cxmcp.cmd 登录一次")
+        err = raw.strip().splitlines()[-3:]
         raise SystemExit(" / ".join(err) or f"退出码 {proc.returncode}")
     rows = []
     for item in json.loads(out):
