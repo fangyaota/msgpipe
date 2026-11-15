@@ -87,6 +87,26 @@ cd /d/Workspace/msgpipe
 - `%LOCALAPPDATA%\BrowserSkill\bin\bsk.exe`：浏览器插件自带，装插件时一起装。
 - `D:\Workspace\_cx`（242 MB）：早期逆学习通 asar 的临时解包，已无用，可删。
 
+## 登录与凭据
+
+六条线各有各的登录方式，**没有任何一项要你把密码写进文件**。下面这张表是排障时第一眼看的地方：
+
+| 线 | 需要什么登录 | 怎么准备 | 失效时的样子 | 怎么恢复 |
+| --- | --- | --- | --- | --- |
+| 微信 | 微信 4.x 客户端已登录并在运行 | `cd ~/.wechat-cli && ./wxcli.cmd init`，不需要输入密码，输出应 `18/18` | `wxcli sessions` 报「未找到微信数据目录」或解密失败 | 微信开着，重跑 `wxcli init` |
+| 企业微信 | WXWork 已登录并在运行 | `tools/wecom/find_key.py`（弹一次 UAC 扫内存拿 key） | `wecom.py refresh` 报 `SQLITE_NOTADB` / 解出 0 条 | 重跑 `find_key.py --out state/wecom/key.txt` 再 `refresh` |
+| 学习通（作业） | 学习通账号 | `tools/xxt/xxt.cmd auth --headed` 扫二维码（也可账号密码，但扫码更稳） | 退出码 `3` = LOGIN_TIMEOUT，`4` = PAGE_UNRECOGNIZED | 重跑 `auth --headed` |
+| 学习通（消息） | 同一个学习通账号 | `scripts\seed-cxmcp.cmd`：弹出 Edge 登录一次，脚本把会话 cookie 的 `expires` 改成一年 | `dump.mjs` 报未登录，或 `--source chaoxing` 出 0 条 | 再跑一次 `seed-cxmcp.cmd` |
+| 数你最灵 | 学校 + 学号 + 密码 | 不用脚本：bsk 开可见窗口时在同一 Edge 里登一次，之后复用该 profile | 页面跳回登录表单，`assignments` 报解析失败 | 在 Agent Window 里手动登一次 |
+| 滴答清单 | 个人令牌 `dp_…` | `https://developer.dida365.com` 生成，写进 `state/dsh/dida-token.txt`，跑 `scripts\install-mcp.cmd --apply` | MCP 工具在，但一调就 `401 invalid_token` | 换令牌，重跑 install-mcp |
+
+几条经验：
+
+- **先检查，再折腾**：`scripts\seed-cxmcp.cmd --check` 只探测不改任何东西；学习通作业线用 `xxt.cmd doctor`；数你最灵用 `msgscan.cmd assignments --source smartestu`。
+- **登录态都是文件**：微信在 `~/.wechat-cli/all_keys.json`，企微在 `state/wecom/key.txt`，学习通作业在 `state/xxt/session.enc`，学习通消息在 `tools/cxmcp/user-profile/`，数你最灵在 Edge 的默认 profile 里。备份/迁移就是拷这些。
+- **cxmcp 的 `config.json` 支持填手机号密码**，本项目故意留占位符——写进文件迟早泄露，用 `seed-cxmcp.cmd` 扫码一次更省事。
+- **不要提交登录态**：`state/`、`tools/*/user-profile/`、`*/messages/` 都已在 `.gitignore` 里。
+
 ## 装到一台新机器（或新 DSH）
 
 前提：Windows 10/11 **x64**；Python ≥3.12（本项目在 `D:\Python\Python315\python.exe`，3.15.0rc2 上验过）；Node ≥20（本机 v24.19.0）；微信、企业微信、学习通三个客户端都已装好并登录过；有一份能用的滴答账号。
