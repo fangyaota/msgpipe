@@ -1,0 +1,58 @@
+# ── 隐私：这些是"本机运行的产物"，不能进公开仓库 ─────────────────
+# 例外说明见文件末尾的「要上传什么」一节。
+
+# 待办正文与聊天原文（含真实姓名、学号、群名、课程、成绩）
+待办/原始消息/
+待办/日期纪要/
+待办/文件/
+待办/*.md
+!待办/.gitkeep
+
+# 凭据与登录态：任何 key/token/cookie 都不进版本库
+state/
+tools/*/user-profile/
+tools/*/state/
+tools/*/messages/
+*.key
+*key.txt
+*token*.txt
+all_keys.json
+cordis.patch.yml
+*.bak-*
+
+# 工具链（1.1 GB，换机器重装比提交更省事）
+tools/xxt/.venv/
+tools/xxt/browsers/
+tools/xxt/tmp/
+tools/xxt/probe/
+tools/xxt/*.html
+tools/xxt/*.json
+tools/xxt/*.log
+tools/cxmcp/node_modules/
+tools/cxmcp/messages/
+tools/cxmcp/user-profile/
+tools/cxmcp/config.json
+tools/wecom/probe/
+tools/wecom/out/
+tools/wecom/*.py
+!tools/wecom/wecom.py
+!tools/wecom/find_key.py
+!tools/wecom/wxwork_crypto.py
+!tools/wecom/protobuf_fields.py
+!tools/wecom/local_io.py
+!tools/wecom/wal_snapshot.py
+tools/wecom/run_*.bat
+
+# 临时与缓存
+_t*
+*.tmp
+*.log
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
+
+# ── 要上传什么 ──────────────────────────────────────────────
+# 只该有：README.md、docs/、scripts/、skills/、.gitignore
+# tools/ 里的"第三方工具"按需二选一：要么加 vendor 白名单提交源码，
+# 要么在 README 里写清楚从哪下载——本仓库目前选后者。
