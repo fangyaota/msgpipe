@@ -1,7 +1,8 @@
 @echo off
 setlocal
-set "TEMP=D:\Workspace\msgpipe\state\xxt\tmp"
+for %%i in ("%~dp0..") do set "PROJ=%%~fi"
+set "TEMP=%PROJ%\state\xxt\tmp"
 set "TMP=%TEMP%"
-set "PLAYWRIGHT_BROWSERS_PATH=D:\Workspace\msgpipe\tools\xxt\browsers"
+set "PLAYWRIGHT_BROWSERS_PATH=%PROJ%\tools\xxt\browsers"
 set "PYTHONIOENCODING=utf-8"
-"D:\Workspace\msgpipe\tools\xxt\chaoxing-agent-cli-main\.venv\Scripts\python.exe" "%~dp0seed_cxmcp_cookies.py" %*
+"%PROJ%\tools\xxt\chaoxing-agent-cli-main\.venv\Scripts\python.exe" "%~dp0seed_cxmcp_cookies.py" %*

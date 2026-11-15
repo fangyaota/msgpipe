@@ -109,7 +109,7 @@ cd /d/Workspace/msgpipe
 
 ## 装到一台新机器（或新 DSH）
 
-前提：Windows 10/11 **x64**；Python ≥3.12（本项目在 `D:\Python\Python315\python.exe`，3.15.0rc2 上验过）；Node ≥20（本机 v24.19.0）；微信、企业微信、学习通三个客户端都已装好并登录过（browser-skill 不是必需）；有一份能用的滴答账号。
+前提：Windows 10/11 **x64**；Python ≥3.12（本项目在 `D:\Python\Python315\python.exe`，3.15.0rc2 上验过；换机器时设环境变量 `MSGPIPE_PY` 指向你的 python.exe，或确保 `python` 在 PATH）；Node ≥20（本机 v24.19.0）；微信、企业微信、学习通三个客户端都已装好并登录过（browser-skill 不是必需）；有一份能用的滴答账号。
 
 目标：`msgscan.cmd sources` 四条线全绿，`msgscan.cmd since` 能出消息，`msgscan.cmd assignments` 能列作业。
 
@@ -331,7 +331,7 @@ cp ~/.dsh/profiles/web/cordis.patch.yml ~/.dsh/profiles/web/cordis.patch.yml.bak
 
    **2.6 换令牌 / 移除**：换令牌只改 `Authorization` 那一行；移除就整段删掉 `- insert:` 块，热加载后 `mcp__dida365__*` 消失。删除不影响已经建好的任务（任务在滴答云端）。
 
-3. 换过盘符或用户名时，全局改这些写死的路径：`scripts/msgscan.py` 的 `PROJ/STATE_DIR/WECOM_SCRIPTS/XXT_*`、`scripts/msgscan.cmd` 的解释器、`tools/xxt/xxt.cmd` 四个变量、`tools/wecom/wecom.py` 的 HOME 与缓存目录、`tools/xxt/scan_all.py` 的报告路径、`tools/cxmcp/dump.mjs` 的输出目录。
+3. 换过盘符或用户名时：脚本已按自身位置推导路径（`%~dp0`、`os.path.dirname(__file__)`），只需设 `MSGPIPE_PY`；仍写死的地方是：`scripts/msgscan.py` 的 `PROJ/STATE_DIR/WECOM_SCRIPTS/XXT_*`、`scripts/msgscan.cmd` 的解释器、`tools/xxt/xxt.cmd` 四个变量、`tools/wecom/wecom.py` 的 HOME 与缓存目录、`tools/xxt/scan_all.py` 的报告路径、`tools/cxmcp/dump.mjs` 的输出目录。
 
 ### 9. 验收
 

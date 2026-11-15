@@ -24,16 +24,16 @@ import shutil
 import sys
 from datetime import datetime
 
-PROJ = r"D:\Workspace\msgpipe"
+PROJ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOME = os.path.expanduser("~")
-STATE_DIR = r"D:\Workspace\msgpipe\state"
+STATE_DIR = os.path.join(PROJ, "state")
 STATE = os.path.join(STATE_DIR, "msgscan.json")
 WECHAT_SCRIPTS = os.path.join(HOME, ".dsh", "skills", "wechat-local", "scripts")
-WECOM_SCRIPTS = r"D:\Workspace\msgpipe\tools\wecom"
-PY = sys.executable
-XXT_REPORT = r"D:\Workspace\msgpipe\tools\xxt\courses_report.json"
-XXT_SCAN = r"D:\Workspace\msgpipe\tools\xxt\scan_all.py"
-CXMCP_DIR = r"D:\Workspace\msgpipe\tools\cxmcp"
+WECOM_SCRIPTS = os.path.join(PROJ, "tools", "wecom")
+PY = os.environ.get("MSGPIPE_PY") or sys.executable
+XXT_REPORT = os.path.join(PROJ, "tools", "xxt", "courses_report.json")
+XXT_SCAN = os.path.join(PROJ, "tools", "xxt", "scan_all.py")
+CXMCP_DIR = os.path.join(PROJ, "tools", "cxmcp")
 CXMCP_DUMP = os.path.join(CXMCP_DIR, "dump.mjs")
 CXMCP_INDEX = os.path.join(CXMCP_DIR, "messages", "_index.json")
 
@@ -210,10 +210,10 @@ def xxt_assignments(refresh=False):
         p = subprocess.run([PY, XXT_SCAN], capture_output=True, text=True,
                            encoding="utf-8", errors="replace",
                            env={**os.environ,
-                                "TEMP": r"D:\Workspace\msgpipe\tools\xxt\tmp",
-                                "TMP": r"D:\Workspace\msgpipe\tools\xxt\tmp",
-                                "PLAYWRIGHT_BROWSERS_PATH": r"D:\Workspace\msgpipe\tools\xxt\browsers",
-                                "XXT_STATE_DIR": r"D:\Workspace\msgpipe\state\xxt",
+                                "TEMP": os.path.join(PROJ, "state", "xxt", "tmp"),
+                                "TMP": os.path.join(PROJ, "state", "xxt", "tmp"),
+                                "PLAYWRIGHT_BROWSERS_PATH": os.path.join(PROJ, "tools", "xxt", "browsers"),
+                                "XXT_STATE_DIR": os.path.join(PROJ, "state", "xxt"),
                                 "PYTHONIOENCODING": "utf-8"})
         if p.returncode != 0:
             raise SystemExit(f"学习通巡检失败：{(p.stderr or p.stdout).strip()[:300]}")
