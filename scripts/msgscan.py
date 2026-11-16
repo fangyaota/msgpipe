@@ -292,6 +292,30 @@ def clean_rows(rows, width=300):
 # ---------------------------------------------------------------- 数你最灵（浏览器）
 BSK = os.path.join(os.environ.get("LOCALAPPDATA", ""), "BrowserSkill", "bin", "bsk.exe")
 SX_URL = "https://smartestu.cn/assignment"
+MUC_URL = "http://my.muc.edu.cn/page/11#/"
+MUC_API = "/comsys-portal-notice-web/getNoticeByPage"
+MUC_JS = r"""
+(async ([api, pages]) => {
+  const out = []; const seen = new Set();
+  for (let p = 1; p <= pages; p++) {
+    const r = await fetch(api, {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({pageNum: p, pageSize: 10}), credentials:'include'});
+    const t = await r.text();
+    let j; try { j = JSON.parse(t); } catch (e) { return JSON.stringify({error:'not-json', sample: t.slice(0,120)}); }
+    const rows = (j.datas && j.datas.tables) || [];
+    if (!rows.length) break;
+    for (const x of rows) {
+      const id = x.notice_id || x.notice_title;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      out.push({time: x.notice_release_time || x.notice_first_time || '',
+        type: x.notice_type_name || '', dept: x.organization_name || '',
+        title: x.notice_title || '', link: x.notice_link || '', id: x.notice_id || ''});
+    }
+  }
+  return JSON.stringify({rows: out});
+})([API, PAGES])
+"""
 SX_JS = (r"JSON.stringify(Array.from(document.querySelectorAll('table tbody tr'))"
          r".map(tr=>Array.from(tr.cells).map(td=>td.innerText.trim().replace(/\s+/g,' '))))")
 SX_COUNT_JS = "document.querySelectorAll('table tbody tr').length"
@@ -308,10 +332,15 @@ def _bsk(*args, timeout=90):
 
 def _bsk_json(*args, timeout=90):
     rc, out, err = _bsk(*args, timeout=timeout)
-    try:
-        return json.loads(out[out.index("{"):] if "{" in out else out or "null")
-    except Exception:
-        raise SystemExit(f"bsk {' '.join(args[:2])} 失败：{(err or out).strip()[:300]}")
+    txt = (out or "").strip()
+    for cand in (txt, txt[txt.index("{"):] if "{" in txt else "", txt[txt.index("["):] if "[" in txt else ""):
+        if not cand:
+            continue
+        try:
+            return json.loads(cand)
+        except Exception:
+            continue
+    raise SystemExit(f"bsk {' '.join(args[:2])} 失败：{(err or out).strip()[:300]}")
 
 
 def _smartestu_playwright():
@@ -464,6 +493,92 @@ def gather(sources, cutoff, limit):
 
 
 # ---------------------------------------------------------------- 命令
+def _notices_bsk(limit=40, pages=3):
+    """读学校门户通知公告（browser-skill 路线：复用浏览器里已登录的门户会话）。"""
+    if not os.path.isfile(BSK):
+        raise SystemExit(f"找不到 bsk.exe：{BSK}")
+    st = _bsk_json("status", "--json")
+    browsers = st.get("browsers") or []
+    if not browsers:
+        raise SystemExit("没有连上浏览器：先在浏览器里启用 browser-skill 扩展")
+    bid = browsers[0]["instance_id"]
+    sessions = _bsk_json("session", "list", "--json") or []
+    created = False
+    if sessions:
+        sid = sessions[0]["session_id"]
+    else:
+        sstart = _bsk_json("session", "start", "--browser", bid, "--focus", "--json")
+        sid = sstart.get("session_id")
+        created = True
+    try:
+        _bsk("navigate", "--session", sid, MUC_URL)
+        import time as _t
+        _t.sleep(2.5)
+        js = MUC_JS.replace("[API, PAGES]", f"[{json.dumps(MUC_API)}, {pages}]")
+        rc, out, err = _bsk("evaluate", "--session", sid, "--json", js)
+        if rc != 0:
+            raise SystemExit(f"读取失败：{(err or out).strip()[:300]}")
+        val = json.loads(out[out.index("{"):]).get("value") or "{}"
+        data = json.loads(val)
+        if data.get("error"):
+            raise SystemExit(f"门户返回非 JSON（可能没登录）：{data.get('sample')}")
+        return (data.get("rows") or [])[:limit]
+    finally:
+        if created:
+            _bsk("session", "stop", sid)
+
+
+def _notices_playwright(limit=40, pages=3):
+    """Playwright 兜底：跑 tools/muc/portal_notices.py（需要它自己的登录态）。"""
+    script = os.path.join(PROJ, "tools", "muc", "portal_notices.py")
+    if not os.path.isfile(script):
+        raise SystemExit(f"找不到 {script}")
+    env = dict(os.environ, PYTHONIOENCODING="utf-8")
+    pr = subprocess.run([XXT_PY or PY, script, "--limit", str(limit), "--pages", str(pages), "--json"],
+                        capture_output=True, text=True, encoding="utf-8", errors="replace", env=env, timeout=600)
+    if pr.returncode != 0:
+        raise SystemExit(f"门户读取失败：{(pr.stderr or pr.stdout).strip()[:300]}")
+    try:
+        return json.loads(pr.stdout[pr.stdout.index("["):])
+    except Exception:
+        raise SystemExit("门户输出不是 JSON")
+
+
+def cmd_notices(a):
+    since = parse_at(a.since) if a.since else None
+    if not a.since and not a.all:
+        since = parse_at(load_state().get("watermark_muc"))
+    try:
+        rows = _notices_bsk(limit=a.limit, pages=a.pages)
+    except SystemExit as first:
+        if os.environ.get("MSGPIPE_DEBUG"):
+            print(f"[i] bsk 路线失败：{first}", file=sys.stderr)
+        rows = _notices_playwright(limit=a.limit, pages=a.pages)
+    if a.dept:
+        rows = [r for r in rows if a.dept in (r.get("dept") or "")]
+    if a.type:
+        rows = [r for r in rows if a.type in (r.get("type") or "")]
+    if since:
+        keep = []
+        for r in rows:
+            t = parse_at(r.get("time") or "")
+            if not t or t >= since:
+                keep.append(r)
+        rows = keep
+    rows.sort(key=lambda r: r.get("time") or "", reverse=True)
+    rows = rows[: a.limit]
+    from datetime import datetime as _dt
+    unified = []
+    for r in rows:
+        t = parse_at(r.get("time") or "") or _dt.min
+        text = r.get("title", "") + (f"  {r['link']}" if r.get("link") else "")
+        unified.append((t, "门户", r.get("dept") or "-", r.get("type", ""), text))
+    emit(unified, a.json)
+    if not a.json:
+        print(f"[msgscan] {len(rows)} 条门户通知" + (f"，起点 {since}" if since else ""), file=sys.stderr)
+    return 0
+
+
 def cmd_doctor(a):
     """逐条线自检：依赖 / 登录态 / 水位。缺哪条就跳过哪条，不影响其它线。"""
     deep = getattr(a, "deep", False)
@@ -547,7 +662,14 @@ def cmd_doctor(a):
 
     print(f"\n水位  微信={st.get('watermark_wechat') or '(未设)'}  "
           f"企微={st.get('watermark_wecom') or '(未设)'}  "
-          f"学习通={st.get('watermark_chaoxing') or '(未设)'}")
+          f"学习通={st.get('watermark_chaoxing') or '(未设)'}  "
+          f"门户={st.get('watermark_muc') or '(未设)'}")
+    print("— 通知线 —")
+    try:
+        n = len(_notices_bsk(limit=1, pages=1))
+        print(f"muc: OK（门户通知，bsk 读到 {n} 条）")
+    except SystemExit as e:
+        print(f"muc: 不可用 — {e}")
     for nm, hint in (("chapters", "msgscan chapters --course 工程图学"),
                      ("inbox", "msgscan inbox --limit 20")):
         path = os.path.join(PROJ, "tools", "xxt", {"chapters": "chapters_hw.py", "inbox": "inbox_notices.py"}[nm])
@@ -563,7 +685,14 @@ def cmd_sources(a):
     st = load_state()
     print(f"水位  微信={st.get('watermark_wechat') or '(未设)'}  "
           f"企微={st.get('watermark_wecom') or '(未设)'}  "
-          f"学习通={st.get('watermark_chaoxing') or '(未设)'}")
+          f"学习通={st.get('watermark_chaoxing') or '(未设)'}  "
+          f"门户={st.get('watermark_muc') or '(未设)'}")
+    print("— 通知线 —")
+    try:
+        n = len(_notices_bsk(limit=1, pages=1))
+        print(f"muc: OK（门户通知，bsk 读到 {n} 条）")
+    except SystemExit as e:
+        print(f"muc: 不可用 — {e}")
     print("— 消息线 —")
     for s in ("wechat", "wecom", "chaoxing"):
         try:
@@ -612,7 +741,7 @@ def cmd_sessions(a):
         print(f"{last.strftime('%Y-%m-%d %H:%M')} | {src} | {conv} | {c} 条")
 
 
-WM_KEY = {"wechat": "watermark_wechat", "wecom": "watermark_wecom", "chaoxing": "watermark_chaoxing"}
+WM_KEY = {"wechat": "watermark_wechat", "wecom": "watermark_wecom", "chaoxing": "watermark_chaoxing", "muc": "watermark_muc"}
 
 
 def cmd_since(a):
@@ -781,6 +910,16 @@ def main():
     p = sub.add_parser("inbox", help="学习通站内信 Inbox（作业提醒等）")
     p.add_argument("--limit", type=int, default=30)
     p.set_defaults(func=cmd_inbox)
+
+    p = sub.add_parser("notices", help="学校门户通知公告（校级/部门级，只读）")
+    p.add_argument("--since", help="只看这个时间之后（默认用 watermark_muc）")
+    p.add_argument("--all", action="store_true", help="忽略水位，看最近几页")
+    p.add_argument("--limit", type=int, default=40)
+    p.add_argument("--pages", type=int, default=3, help="翻几页（每页 10 条）")
+    p.add_argument("--dept", help="按部门关键词过滤")
+    p.add_argument("--type", help="按类型过滤，如 教学通知/公示公告")
+    p.add_argument("--width", type=int, default=300)
+    p.set_defaults(func=cmd_notices)
 
     p = sub.add_parser("advance", help="推进水位")
     p.add_argument("--at", required=True)

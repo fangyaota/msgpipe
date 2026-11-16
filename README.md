@@ -53,6 +53,8 @@ cd /d/Workspace/msgpipe
 ./scripts/msgscan.cmd assignments --refresh    # 先巡检 14 门课再列（1-2 分钟）
 ./scripts/msgscan.cmd chapters --course 工程图学  # 某门课「章节」里的作业任务点（纸面作业在这里）
 ./scripts/msgscan.cmd inbox --limit 20         # 学习通站内信 Inbox（作业提醒、老师群发）
+./scripts/msgscan.cmd notices                  # 学校门户通知公告（校级/部门级，默认用 watermark_muc）
+./scripts/msgscan.cmd notices --all --type 公示公告   # 看最近几页、只看公示公告
 ./scripts/msgscan.cmd advance --at "2026-11-15 16:10"   # 推进水位
 ```
 
@@ -64,8 +66,11 @@ cd /d/Workspace/msgpipe
 | 企业微信 | 课程群、内部部署 | `tools/wecom` 解密 `C:\Users\<你>\Documents\WXWork\<账号>\Data` |
 | 学习通 · 作业 | 作业状态与截止 | `tools/xxt`（xxt.exe 走网页版）+ `tools/xxt/courses_report.json` |
 | 学习通 · 消息 | 课程群聊 | `tools/cxmcp`（fe.chaoxing.com/webim 的 store）→ `messages\` |
+| 学校门户 · 通知 | 校级/部门级通知公告（选调、教务、评奖公示、讲座） | `tools/muc`（my.muc.edu.cn 的 `getNoticeByPage` JSON 接口） |
 
 数你最灵（`smartestu.cn`）不是独立数据源，是 `assignments` 里额外开一个可见浏览器窗口读的作业表。
+
+`notices` 的边界要说清：它读到的是**校级/部门级通知与公示**（研究生院、教务处、党委学工部、各学院），微信和企微里看不到这些；但课表、成绩、奖助在「本科生教务系统」「智慧学工」两个独立子系统里，需要各自登录，这一层拿不到。
 
 `chapters` 和 `inbox` 走的是学习通自己的网页：`chapters` 点开课程「章节」读每个作业任务点（工程图学的习题册页码只在这里有，作业页签看不到）；`inbox` 会先把门户切到学校（`fid=383`，默认停在图书馆空间，不切就没有 Inbox），再读 `notice.chaoxing.com` 的站内信列表。两条都只读。
 
