@@ -70,6 +70,23 @@ def parse_at(s, default=None):
 
 
 # ---------------------------------------------------------------- 微信
+_WX_SYNCED = [False]
+
+
+def _wx_sync_cache():
+    """让 wxcli 自己把新数据同步进解密缓存（0.2 秒，无命中搜索即可触发）。"""
+    if _WX_SYNCED[0] or os.environ.get("MSGPIPE_NO_WX_SYNC"):
+        return
+    _WX_SYNCED[0] = True
+    cmd = os.path.join(os.environ.get("USERPROFILE", ""), ".wechat-cli", "wxcli.cmd")
+    if not os.path.isfile(cmd):
+        return
+    try:
+        subprocess.run([cmd, "search", "zzz_no_such_keyword"], capture_output=True, timeout=60)
+    except Exception:
+        pass
+
+
 def wechat_rows(cutoff=None, limit=None):
     """返回 [(datetime, conv, sender, text)]，按时间升序"""
     if not os.path.isdir(WECHAT_SCRIPTS):
@@ -80,6 +97,7 @@ def wechat_rows(cutoff=None, limit=None):
         import search_all as S  # noqa: E402
     except ModuleNotFoundError as e:
         raise SystemExit(f"微信线依赖缺失（{e}）：重跑 scripts\\install-skills.cmd")
+    _wx_sync_cache()
 
     try:
         zstd = S.load_zstd()
