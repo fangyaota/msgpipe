@@ -1,7 +1,9 @@
 @echo off
-set "TEMP=D:\Workspace\msgpipe\tools\xxt\tmp"
-set "TMP=D:\Workspace\msgpipe\tools\xxt\tmp"
-set "PLAYWRIGHT_BROWSERS_PATH=D:\Workspace\msgpipe\tools\xxt\browsers"
-set "XXT_STATE_DIR=D:\Workspace\msgpipe\state\xxt"
+set "XXT_HOME=%~dp0"
+set "MSGPIPE_HOME=%~dp0..\.."
+set "TEMP=%XXT_HOME%tmp"
+set "TMP=%XXT_HOME%tmp"
+set "PLAYWRIGHT_BROWSERS_PATH=%XXT_HOME%browsers"
+set "XXT_STATE_DIR=%MSGPIPE_HOME%\state\xxt"
 set "PYTHONIOENCODING=utf-8"
-"D:\Workspace\msgpipe\tools\xxt\chaoxing-agent-cli-main\.venv\Scripts\xxt.exe" %*
+"%XXT_HOME%chaoxing-agent-cli-main\.venv\Scripts\xxt.exe" %*

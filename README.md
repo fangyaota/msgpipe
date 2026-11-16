@@ -5,7 +5,7 @@
 ## 目录
 
 ```
-D:\Workspace\msgpipe\
+<项目目录>\
   README.md            本文件：项目地图与命令
   docs\
     使用说明.md        日常怎么用（触发语、结果在哪看、排障）
@@ -101,7 +101,7 @@ cd /d/Workspace/msgpipe
 
 ## 装到一台新机器（或新 DSH）
 
-前提：Windows 10/11 **x64**；Python ≥3.12（本项目在 `D:\Python\Python315\python.exe`，3.15.0rc2 上验过；换机器时设环境变量 `MSGPIPE_PY` 指向你的 python.exe，或确保 `python` 在 PATH）；Node ≥20（本机 v24.19.0）；微信、企业微信、学习通三个客户端都已装好并登录过（browser-skill 不是必需）；有一份能用的滴答账号。
+前提：Windows 10/11 **x64**；Python ≥3.12（本项目在 `python`，3.15.0rc2 上验过；换机器时设环境变量 `MSGPIPE_PY` 指向你的 python.exe，或确保 `python` 在 PATH）；Node ≥20（本机 v24.19.0）；微信、企业微信、学习通三个客户端都已装好并登录过（browser-skill 不是必需）；有一份能用的滴答账号。
 
 目标：`msgscan.cmd sources` 四条线全绿，`msgscan.cmd since` 能出消息，`msgscan.cmd assignments` 能列作业。
 
@@ -120,7 +120,7 @@ cd /d/Workspace/msgpipe
 
 ### 1. 落地目录
 
-把整个 `msgpipe` 复制到 `D:\Workspace\msgpipe`（路径写死在各脚本里，换盘要全局替换，见第 8 步）。第三方大件可以不搬，按下面几节重建：`tools/xxt/browsers`、`tools/xxt/chaoxing-agent-cli-main/.venv`、`tools/cxmcp/node_modules`、`tools/cxmcp/user-profile`。
+把整个 `msgpipe` 复制到 `<项目目录>`（路径写死在各脚本里，换盘要全局替换，见第 8 步）。第三方大件可以不搬，按下面几节重建：`tools/xxt/browsers`、`tools/xxt/chaoxing-agent-cli-main/.venv`、`tools/cxmcp/node_modules`、`tools/cxmcp/user-profile`。
 
 ```bash
 cd /d/Workspace/msgpipe && ./scripts/msgscan.cmd sources   # 这一步会报缺什么，照着后面补
@@ -156,7 +156,7 @@ cd /c/Users/Apple/.wechat-cli && ./wxcli.cmd init      # 期望 18/18 库密钥�
 4. 装 `wechat-local` 技能（提供 `search_all.py`，msgscan 的微信分支 import 它）：
 
 ```bash
-# SKILL.md 放 C:\Users\Apple\.dsh\skills\wechat-local\，脚本在 scripts\
+# SKILL.md 放 %USERPROFILE%\.dsh\skills\wechat-local\，脚本在 scripts\
 ```
 
 ### 4. 企业微信线
@@ -272,7 +272,7 @@ export BSK_AUTO_START=0
 
 ```bat
 @echo off
-call "D:\Workspace\msgpipe\scripts\msgscan.cmd" %*
+call "<项目目录>\scripts\msgscan.cmd" %*
 ```
 
 2. **滴答 MCP**（整条待办链路唯一的必装 MCP，`msgscan` 自己不用它，是 AI 建任务时用的）
@@ -291,7 +291,7 @@ curl -s --ssl-no-revoke -X POST https://mcp.dida365.com \
 
    期望返回里有 `"serverInfo":{"name":"TickTick MCP Server"}`。返回 `401` 与 `Bearer error="invalid_token"` 就是令牌不对或过期。注意 `https://mcp.dida365.com/mcp` 是 404，正确地址是根路径。
 
-   **2.3 写进 profile**：最省事是 `./scripts/install-mcp.cmd`（先把令牌写进 `state\dsh\dida-token.txt`；不带 `--apply` 只干跑，已装过会跳过）。手动做法是先备份，再在 `C:\Users\Apple\.dsh\profiles\web\cordis.patch.yml` **末尾**追加（注意是顶层列表项，`- insert:` 前面不能有缩进）：
+   **2.3 写进 profile**：最省事是 `./scripts/install-mcp.cmd`（先把令牌写进 `state\dsh\dida-token.txt`；不带 `--apply` 只干跑，已装过会跳过）。手动做法是先备份，再在 `%USERPROFILE%\.dsh\profiles\web\cordis.patch.yml` **末尾**追加（注意是顶层列表项，`- insert:` 前面不能有缩进）：
 
 ```yaml
 - insert:

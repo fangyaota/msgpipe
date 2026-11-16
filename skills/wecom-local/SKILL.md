@@ -30,11 +30,11 @@ PY="D:/Python/Python315/python.exe"
 
 | 东西 | 位置 |
 |---|---|
-| 入口脚本 | `D:\Workspace\msgpipe\tools\wecom\wecom.py` |
-| key | `D:\Workspace\msgpipe\state\wecom/key.txt`（32 位十六进制，明文，别外传） |
-| 解密缓存 | `D:\Workspace\msgpipe\state\wecom/cache\<账号>\*.db` |
-| 断点与库指纹 | `D:\Workspace\msgpipe\state\wecom/state.json`（`watermark_wecom`） |
-| 企业微信数据根 | `C:\Users\Apple\Documents\WXWork\<账号>\Data\*.db`（主账号 `<账号>`） |
+| 入口脚本 | `<项目目录>\tools\wecom\wecom.py` |
+| key | `<项目目录>\state\wecom/key.txt`（32 位十六进制，明文，别外传） |
+| 解密缓存 | `<项目目录>\state\wecom/cache\<账号>\*.db` |
+| 断点与库指纹 | `<项目目录>\state\wecom/state.json`（`watermark_wecom`） |
+| 企业微信数据根 | `%USERPROFILE%\Documents\WXWork\<账号>\Data\*.db`（主账号 `<账号>`） |
 | 抓 key 脚本 | `scripts/find_key.py`（需 UAC，4 秒出结果） |
 | Python | `D:/Python/Python315/python.exe`（pycryptodome + numpy 已装） |
 
@@ -53,7 +53,7 @@ PY="D:/Python/Python315/python.exe"
 - **本地库只有近期少量会话**：实测 51 条 / 7 个会话（2026-11-01 → 2026-11-15），历史在服务端。所以它适合「断点之后有什么新消息」，不适合「翻三个月前」。
 - 卡片类消息（type 561/145 等）只能拿到标题文字，**拿不到里面的链接**；链接类（35）和文档链接（13）能拿到 URL。
 - 图片/文件按 `Cache\{File,Image}\` 里的同名文件导出；发出去的消息原件不一定还在本地。
-- 解密产物是本机敏感数据，放 `D:\Workspace\msgpipe\state\wecom/`，别进网盘、别进 git。
+- 解密产物是本机敏感数据，放 `<项目目录>\state\wecom/`，别进网盘、别进 git。
 
 ## 与 wechat-todo 的关系
 

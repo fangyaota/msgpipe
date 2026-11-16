@@ -3,14 +3,16 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, r"D:\Workspace\msgpipe\tools\xxt\\chaoxing-agent-cli-main\\src")
+HERE = Path(__file__).resolve().parent
+PROJ = HERE.parents[1]
+sys.path.insert(0, str(HERE / "chaoxing-agent-cli-main" / "src"))
 
 from xxt_cli.session import Session
 from xxt_cli.browser import Browser
 from xxt_cli import parsers
 
-OUT = Path(r"D:\Workspace\msgpipe\tools\xxt")
-s = Session(Path(r"D:\Workspace\msgpipe\state\\xxt"))
+OUT = HERE
+s = Session(PROJ / "state" / "xxt")
 report = []
 with Browser(s, headed=False, timeout=30000) as b:
     b.goto("https://mooc1.chaoxing.com/visit/interaction")

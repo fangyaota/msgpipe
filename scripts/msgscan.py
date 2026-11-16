@@ -34,6 +34,8 @@ WECOM_SCRIPTS = os.path.join(PROJ, "tools", "wecom")
 PY = os.environ.get("MSGPIPE_PY") or sys.executable
 XXT_REPORT = os.path.join(PROJ, "tools", "xxt", "courses_report.json")
 XXT_SCAN = os.path.join(PROJ, "tools", "xxt", "scan_all.py")
+XXT_VENV = os.path.join(PROJ, "tools", "xxt", "chaoxing-agent-cli-main", ".venv", "Scripts", "python.exe")
+XXT_PY = XXT_VENV if os.path.isfile(XXT_VENV) else None
 CXMCP_DIR = os.path.join(PROJ, "tools", "cxmcp")
 CXMCP_DUMP = os.path.join(CXMCP_DIR, "dump.mjs")
 CXMCP_INDEX = os.path.join(CXMCP_DIR, "messages", "_index.json")
@@ -239,7 +241,7 @@ def xxt_assignments(refresh=False):
         if not os.path.isfile(XXT_SCAN):
             raise SystemExit(f"找不到巡检脚本：{XXT_SCAN}")
         print("[msgscan] 正在巡检学习通 14 门课，约 1-2 分钟…", file=sys.stderr)
-        p = subprocess.run([PY, XXT_SCAN], capture_output=True, text=True,
+        p = subprocess.run([XXT_PY or PY, XXT_SCAN], capture_output=True, text=True,
                            encoding="utf-8", errors="replace",
                            env={**os.environ,
                                 "TEMP": os.path.join(PROJ, "state", "xxt", "tmp"),
@@ -255,6 +257,9 @@ def xxt_assignments(refresh=False):
         rep = json.load(f)
     rows = []
     courses = rep if isinstance(rep, list) else (rep.get("courses") or [])
+    if courses and all(c.get("error") for c in courses):
+        raise SystemExit("学习通登录态失效（14 门课全部 AUTH_REQUIRED）："
+                         "跑 tools\\xxt\\xxt.cmd auth --headed 扫一次码，再 assignments --refresh")
     for c in courses:
         cname = c.get("title") or c.get("course") or c.get("name") or ""
         for h in c.get("detail") or c.get("homeworks") or []:

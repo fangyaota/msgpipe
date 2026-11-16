@@ -37,7 +37,8 @@ sys.path.insert(0, str(HERE))
 import wxwork_crypto as wc  # noqa: E402
 from protobuf_fields import ordered_fields  # noqa: E402
 
-HOME = Path(os.environ.get("WECOM_LOCAL_HOME") or r"D:\Workspace\msgpipe\state\\wecom")
+PROJ = Path(__file__).resolve().parents[2]          # tools/wecom/wecom.py -> 项目根
+HOME = Path(os.environ.get("WECOM_LOCAL_HOME") or (PROJ / "state" / "wecom"))
 CACHE = HOME / "cache"
 KEY_FILE = HOME / "key.txt"
 STATE_FILE = HOME / "state.json"
