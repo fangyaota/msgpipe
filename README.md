@@ -51,6 +51,8 @@ cd /d/Workspace/msgpipe
 ./scripts/msgscan.cmd search 体测              # 跨四线关键词
 ./scripts/msgscan.cmd assignments              # 学习通作业 + 数你最灵作业（默认两条都查）
 ./scripts/msgscan.cmd assignments --refresh    # 先巡检 14 门课再列（1-2 分钟）
+./scripts/msgscan.cmd chapters --course 工程图学  # 某门课「章节」里的作业任务点（纸面作业在这里）
+./scripts/msgscan.cmd inbox --limit 20         # 学习通站内信 Inbox（作业提醒、老师群发）
 ./scripts/msgscan.cmd advance --at "2026-11-15 16:10"   # 推进水位
 ```
 
@@ -64,6 +66,8 @@ cd /d/Workspace/msgpipe
 | 学习通 · 消息 | 课程群聊 | `tools/cxmcp`（fe.chaoxing.com/webim 的 store）→ `messages\` |
 
 数你最灵（`smartestu.cn`）不是独立数据源，是 `assignments` 里额外开一个可见浏览器窗口读的作业表。
+
+`chapters` 和 `inbox` 走的是学习通自己的网页：`chapters` 点开课程「章节」读每个作业任务点（工程图学的习题册页码只在这里有，作业页签看不到）；`inbox` 会先把门户切到学校（`fid=383`，默认停在图书馆空间，不切就没有 Inbox），再读 `notice.chaoxing.com` 的站内信列表。两条都只读。
 
 ## 打包了什么
 

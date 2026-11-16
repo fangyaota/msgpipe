@@ -548,6 +548,11 @@ def cmd_doctor(a):
     print(f"\n水位  微信={st.get('watermark_wechat') or '(未设)'}  "
           f"企微={st.get('watermark_wecom') or '(未设)'}  "
           f"学习通={st.get('watermark_chaoxing') or '(未设)'}")
+    for nm, hint in (("chapters", "msgscan chapters --course 工程图学"),
+                     ("inbox", "msgscan inbox --limit 20")):
+        path = os.path.join(PROJ, "tools", "xxt", {"chapters": "chapters_hw.py", "inbox": "inbox_notices.py"}[nm])
+        flag = "OK" if (XXT_PY and os.path.isfile(path)) else "--"
+        print(f"[{flag}]  {nm:<22}{hint}")
     print(f"小结  可用 {ok} 条 / 跳过 {skip} 条 / 待修 {bad} 条"
           f"（跳过 = 你没装，正常；待修 = 装了但坏了）")
     return 0 if bad == 0 else 1
@@ -667,6 +672,54 @@ def cmd_assignments(a):
         print(f"{st} | {course} | {title} | {extra}".rstrip(" |"))
 
 
+def _xxt_script(name):
+    return os.path.join(PROJ, "tools", "xxt", name)
+
+
+def _run_xxt_script(name, args, json_out):
+    """用学习通 venv 的 python 跑 tools/xxt 下的 Playwright 脚本。"""
+    if not XXT_PY:
+        raise SystemExit("没找到学习通 venv：先按 README 第 5 步建 tools/xxt/chaoxing-agent-cli-main/.venv")
+    script = _xxt_script(name)
+    if not os.path.isfile(script):
+        raise SystemExit(f"缺脚本：{script}")
+    env = dict(os.environ)
+    env.update({"TEMP": os.path.join(STATE_DIR, "xxt", "tmp"),
+                "TMP": os.path.join(STATE_DIR, "xxt", "tmp"),
+                "PLAYWRIGHT_BROWSERS_PATH": os.path.join(PROJ, "tools", "xxt", "browsers"),
+                "XXT_STATE_DIR": os.path.join(STATE_DIR, "xxt"),
+                "PYTHONIOENCODING": "utf-8"})
+    cmd = [XXT_PY, script] + args + (["--json"] if json_out else [])
+    r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
+                       errors="replace", env=env, stdin=subprocess.DEVNULL, timeout=600)
+    if r.returncode != 0:
+        raise SystemExit((r.stderr or r.stdout or "").strip().splitlines()[-1:] or "脚本失败")
+    return r.stdout, r.stderr
+
+
+def cmd_chapters(a):
+    args = ["--course", a.course]
+    if a.all:
+        args.append("--all")
+    out, err = _run_xxt_script("chapters_hw.py", args, a.json)
+    if a.json:
+        print(out.strip())
+    else:
+        print(out.rstrip())
+        if err.strip():
+            print(err.rstrip(), file=sys.stderr)
+
+
+def cmd_inbox(a):
+    out, err = _run_xxt_script("inbox_notices.py", ["--limit", str(a.limit)], a.json)
+    if a.json:
+        print(out.strip())
+    else:
+        print(out.rstrip())
+        if err.strip():
+            print(err.strip(), file=sys.stderr)
+
+
 def cmd_advance(a):
     at = parse_at(a.at)
     if not at:
@@ -719,6 +772,15 @@ def main():
     p = sub.add_parser("doctor", help="逐条线自检（缺哪条就跳过哪条）")
     p.add_argument("--deep", action="store_true", help="真的去读一次（数你最灵会开窗口）")
     p.set_defaults(func=cmd_doctor)
+
+    p = sub.add_parser("chapters", help="学习通课程「章节」里的作业任务点")
+    p.add_argument("--course", default="工程图学", help="课程名关键词")
+    p.add_argument("--all", action="store_true", help="读全部章节（默认只读标题含「作业」的）")
+    p.set_defaults(func=cmd_chapters)
+
+    p = sub.add_parser("inbox", help="学习通站内信 Inbox（作业提醒等）")
+    p.add_argument("--limit", type=int, default=30)
+    p.set_defaults(func=cmd_inbox)
 
     p = sub.add_parser("advance", help="推进水位")
     p.add_argument("--at", required=True)
