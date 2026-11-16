@@ -295,11 +295,18 @@ SX_URL = "https://smartestu.cn/assignment"
 MUC_URL = "http://my.muc.edu.cn/page/11#/"
 MUC_API = "/comsys-portal-notice-web/getNoticeByPage"
 MUC_JS = r"""
-(async ([api, pages]) => {
+(async ([api, pages, kw]) => {
   const out = []; const seen = new Set();
   for (let p = 1; p <= pages; p++) {
-    const r = await fetch(api, {method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({pageNum: p, pageSize: 10}), credentials:'include'});
+    const f = new URLSearchParams({currentPage: String(p), pageSize: '15',
+      searchValue: kw || '', state: '', is_add: '0', totalCounts: '13', total: '-1',
+      select_all: 'false', select_notice: '', type: '', searchDepartment: '',
+      start_date: '', end_date: '', system_show: '1'});
+    const r = await fetch(api, {method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8',
+               'X-Requested-With':'XMLHttpRequest',
+               'Accept':'application/json, text/plain, */*'},
+      body: f.toString(), credentials:'include'});
     const t = await r.text();
     let j; try { j = JSON.parse(t); } catch (e) { return JSON.stringify({error:'not-json', sample: t.slice(0,120)}); }
     const rows = (j.datas && j.datas.tables) || [];
@@ -314,7 +321,7 @@ MUC_JS = r"""
     }
   }
   return JSON.stringify({rows: out});
-})([API, PAGES])
+})([API, PAGES, KEYWORD])
 """
 SX_JS = (r"JSON.stringify(Array.from(document.querySelectorAll('table tbody tr'))"
          r".map(tr=>Array.from(tr.cells).map(td=>td.innerText.trim().replace(/\s+/g,' '))))")
@@ -493,7 +500,7 @@ def gather(sources, cutoff, limit):
 
 
 # ---------------------------------------------------------------- 命令
-def _notices_bsk(limit=40, pages=3):
+def _notices_bsk(limit=40, pages=3, keyword=""):
     """读学校门户通知公告（browser-skill 路线：复用浏览器里已登录的门户会话）。"""
     if not os.path.isfile(BSK):
         raise SystemExit(f"找不到 bsk.exe：{BSK}")
@@ -514,7 +521,7 @@ def _notices_bsk(limit=40, pages=3):
         _bsk("navigate", "--session", sid, MUC_URL)
         import time as _t
         _t.sleep(2.5)
-        js = MUC_JS.replace("[API, PAGES]", f"[{json.dumps(MUC_API)}, {pages}]")
+        js = MUC_JS.replace("[API, PAGES, KEYWORD]", f"[{json.dumps(MUC_API)}, {pages}, {json.dumps(keyword or '')}]")
         rc, out, err = _bsk("evaluate", "--session", sid, "--json", js)
         if rc != 0:
             raise SystemExit(f"读取失败：{(err or out).strip()[:300]}")
@@ -549,7 +556,7 @@ def cmd_notices(a):
     if not a.since and not a.all:
         since = parse_at(load_state().get("watermark_muc"))
     try:
-        rows = _notices_bsk(limit=a.limit, pages=a.pages)
+        rows = _notices_bsk(limit=a.limit, pages=a.pages, keyword=getattr(a, "search", "") or "")
     except SystemExit as first:
         if os.environ.get("MSGPIPE_DEBUG"):
             print(f"[i] bsk 路线失败：{first}", file=sys.stderr)
@@ -916,6 +923,7 @@ def main():
     p.add_argument("--all", action="store_true", help="忽略水位，看最近几页")
     p.add_argument("--limit", type=int, default=40)
     p.add_argument("--pages", type=int, default=3, help="翻几页（每页 10 条）")
+    p.add_argument("--search", help="站内搜索关键词（走门户的 searchValue）")
     p.add_argument("--dept", help="按部门关键词过滤")
     p.add_argument("--type", help="按类型过滤，如 教学通知/公示公告")
     p.add_argument("--width", type=int, default=300)
