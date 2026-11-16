@@ -5,7 +5,7 @@ description: 微信消息→待办的一站式处理：全量扫描微信会话�
 
 # Skill: wechat-todo（微信消息 → 待办 → 滴答）
 
-> **首次使用检查（每次运行先看这里）**：本 skill 的首次配置（工作区 <项目目录>\待办、微信读取、滴答 MCP）已于 2026-11-06 完成，引导段已删除。若将来看到「🚨 首次使用引导」标题，说明有人在未配置的机器上使用，先按它走完再干活；没有该标题时**直接进入下面的工作流，绝不再重复任何引导说明**。
+> **首次使用检查（每次运行先看这里）**：本 skill 的首次配置（工作区 D:\Workspace\msgpipe\待办、微信读取、滴答 MCP）已于 2026-11-06 完成，引导段已删除。若将来看到「🚨 首次使用引导」标题，说明有人在未配置的机器上使用，先按它走完再干活；没有该标题时**直接进入下面的工作流，绝不再重复任何引导说明**。
 
 
 ## 铁律（每条都出过事故，违反即 bug）
@@ -15,7 +15,8 @@ description: 微信消息→待办的一站式处理：全量扫描微信会话�
 3. **扫全部活跃会话，不许用固定群名单偷懒**：任务经常发在新拉的群里。每次运行必须先 `wxcli sessions` 列全量，凡断点之后有新消息的逐个看；新群/新联系人默认"可能有任务"。
 4. **滴答单任务单日期**：一条滴答任务从标题到 due 到正文自述只允许一个日期；跨多日期的事项拆成多条各挂各日。正文写来源不带日期，历史进展不带日期；末尾【原始信息】原文照抄区天然带日期，不算违反。
 5. **用户范围限定**：每个用户的适用范围不同（校区、年级、职务、身份）。第一次运行时向用户确认其范围限定词并写进 README（如"我是 X 校区学生""我只做 X 职务的活"）；通知原文限定别人做的事，一律不派给用户、记入作废区并注明原因；建任务时不许丢原文的范围限定词，存疑先看原文再建。
-6. **滴答正文末尾必附【原始信息】**：每条滴答任务的 content 最后追加 `【原始信息】（来源群 · 发送人 · 时间）` + 通知原文逐字照抄（含随附文件名）；同一事项拆多条的每条都要附；个人自建任务附 `【原始信息】个人自建任务，无微信原文。`。
+6. **滴答正文末尾必附【原始信息】，且只追加不删除**：每条滴答任务的 content 最后追加 `【原始信息】（来源群 · 发送人 · 时间）` + 通知原文逐字照抄（含随附文件名）；同一事项拆多条的每条都要附；个人自建任务附 `【原始信息】个人自建任务，无微信原文。`。
+   **更新任务时严禁重写正文把旧条目冲掉**：正确做法是保留原有全部内容，先把新情况写在上方正文，再在【原始信息】末尾**追加**一条带日期的新块（如 `② 2026-11-16 补课取消：…`），历史上的每次通知都留着；`update_task` 的 content 是整体覆盖，所以必须把旧内容完整拼回去再提交。用户 2026-11-16 明确要求：旧原始信息一律不许删。
 7. **凡有日期/时间的事项一律建滴答任务**：活动日、截止日、报名窗口、可选活动、收到免回复的小事——不管多小都要建并挂日期；没具体日期的建无截止占位任务注明"届时补日期"；范围型事项建一条挂起始日或截止日。**不确定的也要建**：不知道是否属于用户、是否已办、是否参加（自愿活动、仅参赛者或某职务相关、是否报了某个考试、是否已经做过某事）——一律建任务，**priority 设为 0（无）**，正文第一行写"不确定项：……，不需要就勾掉"。注意：不确定 ≠ 不重要，不要设成 1（低）；0 表示不参与优先级排序，只是先记着，别漏事项。
 8. **滴答去重三查**：新建任何任务前，必须同时查**未完成列表 + 已完成列表 + 关键词搜索**——已提交的不重复建；已打勾的（status=completed）一律视为已完成，既不重建也不再提醒。历史完成也进总表"已完成"区。
 9. **优先级排序**（可被用户在 README 覆盖）：默认 **用户本人组织/职务的事（学生会、班委、部门） > 老师/班主任/上级发的 > 其他按截止紧急度**；汇报与总表排序都按此。
@@ -23,9 +24,9 @@ description: 微信消息→待办的一站式处理：全量扫描微信会话�
 11. **标题只写一个短语**：滴答任务标题与文件章节标题都是一个短句（名词短语即可），不括注、不加冒号或 ` · ` 引导的补充说明——时间、地点、要点、状态一律写进正文。正例 `数学考试`、`室外体质健康测试`、`今天必须做`；反例 `数学考试：时间与考场待确认`、`待办总表 · 倒序，最新截止在上`。文件主标题可带绝对日期（`今日待办 · 2026-11-06`）。【原始信息】照抄区不受此限。
 12. **「只登记」区只放两类**：与用户范围明确无关的信息（别的校区、别的年级、别人的职务），以及纯知会类消息（政策说明、案例通报、成绩已出）。凡是「可能与用户有关但拿不准」的——是否参加、是否已办、是否轮到自己——一律按铁律 7 建 priority 0 的任务，不许只写进「只登记」区或「条件触发」区了事。
 13. **数你最灵每轮都查**（用户 2026-11-15 改口：既然已自动化，就可以每次都看）：每轮「更新待办」都跑 `msgscan.cmd assignments`（默认同时查学习通与数你最灵），不再等公众号新消息触发。走浏览器时用 `--focus` 可见窗口（用户要求看得见），靠已登录会话、不重扫二维码，读完即关；只读，**绝不点提交、不交作业**。读数写进 `日期纪要/YYYY-MM-DD.md` 与 README「数你最灵网页版」节，与上次比对：新出现的「未提交」才建任务，状态变化（如打回、延期）要改任务。
-14. **企业微信是第二条独立扫描线**（用户 2026-11-15 定）：每轮「更新待办」除微信外，还要跑一次企业微信增量（`wecom-local` 技能），**断点各自独立**——微信断点存在 README「数据截至」，企微断点存在 `<项目目录>\state\wecom/state.json` 的 `watermark_wecom`，两者互不推进、互不覆盖。企微扫不出来（key 失效/没开机）只提示，不阻断微信那条线。
-15. **学习通作业是第三条线，只读**（用户 2026-11-15 定）：用 `<项目目录>\tools\xxt\xxt.cmd` 抓课程与作业，只读列表，**绝不点提交、不交作业、不改设置**。只有状态「未交」才建滴答任务（一次多讲/多次的合并成一条，正文列全清单）；「待批阅」「已完成」不建。这条线不是每轮必跑——用户问起作业、或有迹象表明有新课/新作业时才跑，跑完把结论写进纪要与汇报。 学习通有两条线：**作业**走 `xxt.cmd`；**消息**走 `<项目目录>\tools\cxmcp`（`https://fe.chaoxing.com/front/webim` 的课程群聊，`msgscan.cmd since --source chaoxing` 已接好，`watermark_chaoxing` 单独推进）。注意 `i.chaoxing.com` 的 Inbox 是**站内信**，不是聊天，别拿它当消息源。
-16. **四线统一走 msgscan**（用户 2026-11-15 定）：微信、企业微信、学习通的日常拉取一律先用 `<项目目录>\scripts\msgscan.cmd`（sources / sessions / since / search / assignments / advance），输出统一为 `时间 | 来源 | 会话 | 发送者 | 正文`。只有在需要上下文、媒体原件、单会话细节时才回退到各线原生命令（wxcli / wecom.py / xxt.exe）。跑完必须 `msgscan advance --at` 推进水位，让 `<项目目录>\state\msgscan.json` 与 README 的「数据截至」一致。
+14. **企业微信是第二条独立扫描线**（用户 2026-11-15 定）：每轮「更新待办」除微信外，还要跑一次企业微信增量（`wecom-local` 技能），**断点各自独立**——微信断点存在 README「数据截至」，企微断点存在 `D:\Workspace\msgpipe\state\wecom/state.json` 的 `watermark_wecom`，两者互不推进、互不覆盖。企微扫不出来（key 失效/没开机）只提示，不阻断微信那条线。
+15. **学习通作业是第三条线，只读**（用户 2026-11-15 定）：用 `D:\Workspace\msgpipe\tools\xxt\xxt.cmd` 抓课程与作业，只读列表，**绝不点提交、不交作业、不改设置**。只有状态「未交」才建滴答任务（一次多讲/多次的合并成一条，正文列全清单）；「待批阅」「已完成」不建。这条线不是每轮必跑——用户问起作业、或有迹象表明有新课/新作业时才跑，跑完把结论写进纪要与汇报。 学习通有两条线：**作业**走 `xxt.cmd`；**消息**走 `D:\Workspace\msgpipe\tools\cxmcp`（`https://fe.chaoxing.com/front/webim` 的课程群聊，`msgscan.cmd since --source chaoxing` 已接好，`watermark_chaoxing` 单独推进）。注意 `i.chaoxing.com` 的 Inbox 是**站内信**，不是聊天，别拿它当消息源。
+16. **四线统一走 msgscan**（用户 2026-11-15 定）：微信、企业微信、学习通的日常拉取一律先用 `D:\Workspace\msgpipe\scripts\msgscan.cmd`（sources / sessions / since / search / assignments / advance），输出统一为 `时间 | 来源 | 会话 | 发送者 | 正文`。只有在需要上下文、媒体原件、单会话细节时才回退到各线原生命令（wxcli / wecom.py / xxt.exe）。跑完必须 `msgscan advance --at` 推进水位，让 `D:\Workspace\msgpipe\state\msgscan.json` 与 README 的「数据截至」一致。
 
 17. **图片按需读**（用户 2026-11-15 定）：通知以长图或截图形式发、且含时间地点要求时，用 read_image 读出来，把里面的时间、地点、要求落到任务正文（不要只写「附截图」）。座位表、通讯录、长名单这类不用逐字读，记一句「有附件」即可。原图在微信 msg/attach 或企微 Cache/Image，`msgscan` 只给文字，图片要自己找原件。
 
@@ -55,7 +56,7 @@ cd /c/Users/Apple/.dsh/skills/wechat-todo/scripts
 ./msgscan.cmd advance --at "<本次最早处理到的时间>"  # 干完推进水位
 ```
 输出统一为 `时间 | 来源 | 会话 | 发送者 | 正文`（`--json` 可换结构化）。三个数据源、三种原生接口（wxcli / wecom.py / xxt.exe）都由它兜住，不需要记各自的参数。
-水位存在 `<项目目录>\state\msgscan.json`（`watermark_wechat` / `watermark_wecom` / `watermark_chaoxing`），与 README「数据截至」保持同步。
+水位存在 `D:\Workspace\msgpipe\state\msgscan.json`（`watermark_wechat` / `watermark_wecom` / `watermark_chaoxing`），与 README「数据截至」保持同步。
 某条线不可用时 msgscan 会打印「[跳过 微信] 原因」并继续跑其余线，**不要因此中止整轮**。
 
 以下是三条线各自的原生命令，只在需要细节（上下文、媒体、单会话）时才用。
@@ -82,15 +83,15 @@ PY="D:/Python/Python315/python.exe"; WC="D:/Workspace/msgpipe/tools/wecom/wecom.
 
 ### Step 2c · 学习通作业（第三条线，只在需要时跑）
 ```bash
-cmd //c "<项目目录>\tools\xxt\xxt.cmd courses"            # 列 14 门课
-cmd //c "<项目目录>\tools\xxt\xxt.cmd homeworks --course-url '<课程完整URL>'"
-cmd //c "<项目目录>\tools\xxt\xxt.cmd sync --course-url '<课程URL>' --output-dir <项目目录>\tools\xxt\out\<课程>"
+cmd //c "D:\Workspace\msgpipe\tools\xxt\xxt.cmd courses"            # 列 14 门课
+cmd //c "D:\Workspace\msgpipe\tools\xxt\xxt.cmd homeworks --course-url '<课程完整URL>'"
+cmd //c "D:\Workspace\msgpipe\tools\xxt\xxt.cmd sync --course-url '<课程URL>' --output-dir D:\Workspace\msgpipe\tools\xxt\out\<课程>"
 ```
-- 一次性全课程巡检用 `<项目目录>\tools\xxt\scan_all.py`（自带 venv，产物 `courses_report.json`）。
+- 一次性全课程巡检用 `D:\Workspace\msgpipe\tools\xxt\scan_all.py`（自带 venv，产物 `courses_report.json`）。
 - 只关心两类：**状态「未交」** → 建任务；「待批阅/已完成」 → 不建。
 - 已知事实：工科数学分析在**数你最灵**（smartestu），学习通上这门课 0 作业；中华民族共同体概论是 16 讲小测；外研社两条已过期作废。
-- 会话已加密存 `<项目目录>\tools\xxt\state`，只有失效（`AUTH_REQUIRED`）才需要重新 `auth login` 扫码。
-- 踩坑：`cmd //c` 里 URL 含 `&` 会被截断 → 用 bash 单引号直接调 `xxt.exe`；默认 HOME 已从 `i.chaoxing.com` 改成 `mooc1.chaoxing.com/visit/interaction`（源码在 `<项目目录>\tools\xxt\chaoxing-agent-cli-main\src\xxt_cli\browser.py:7`，重装需再改）。
+- 会话已加密存 `D:\Workspace\msgpipe\tools\xxt\state`，只有失效（`AUTH_REQUIRED`）才需要重新 `auth login` 扫码。
+- 踩坑：`cmd //c` 里 URL 含 `&` 会被截断 → 用 bash 单引号直接调 `xxt.exe`；默认 HOME 已从 `i.chaoxing.com` 改成 `mooc1.chaoxing.com/visit/interaction`（源码在 `D:\Workspace\msgpipe\tools\xxt\chaoxing-agent-cli-main\src\xxt_cli\browser.py:7`，重装需再改）。
 - 只读：不点提交、不交作业；发现"未交"只在滴答建任务并把逐字标题写进正文。
 
 ### Step 3 · 关键词补盲
