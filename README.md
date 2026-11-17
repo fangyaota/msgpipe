@@ -68,7 +68,7 @@ cd /d/Workspace/msgpipe
 | 学习通 · 消息 | 课程群聊 | `tools/cxmcp`（fe.chaoxing.com/webim 的 store）→ `messages\` |
 | 学校门户 · 通知 | 校级/部门级通知公告（选调、教务、评奖公示、讲座） | `tools/muc`（my.muc.edu.cn 的 `getNoticeByPage` JSON 接口） |
 
-数你最灵（`smartestu.cn`）不是独立数据源，是 `assignments` 里额外开一个可见浏览器窗口读的作业表。
+数你最灵（`smartestu.cn`）不是独立数据源，是 `assignments`（自动比对上次快照，只报「新的未交 / 状态变化」） 里额外开一个可见浏览器窗口读的作业表。
 
 `notices` 的边界要说清：它读到的是**校级/部门级通知与公示**（研究生院、教务处、党委学工部、各学院），微信和企微里看不到这些；但课表、成绩、奖助在「本科生教务系统」「智慧学工」两个独立子系统里，需要各自登录，这一层拿不到。
 

@@ -823,16 +823,98 @@ def cmd_assignments(a):
             rows += smartestu_assignments()
         except SystemExit as e:
             print(f"[跳过 数你最灵] {e}", file=sys.stderr)
-    if a.json:
-        print(json.dumps([{"status": r[0], "course": r[1], "title": r[2],
-                           "extra": r[3]} for r in rows], ensure_ascii=False, indent=2))
-        return
     if not rows:
         print("（两条作业线都没读到：学习通需要先 --refresh 巡检，数你最灵需要先 --login）\n"
               "  跑 `msgscan.cmd doctor` 看具体缺什么", file=sys.stderr)
         return
-    for st, course, title, extra in rows:
-        print(f"{st} | {course} | {title} | {extra}".rstrip(" |"))
+
+    if a.json:
+        print(json.dumps([{"status": r[0], "course": r[1], "title": r[2], "extra": r[3],
+                           "due": _assign_due(r).strftime("%Y-%m-%d %H:%M") if _assign_due(r) else ""}
+                          for r in rows], ensure_ascii=False, indent=2))
+        return
+
+    new_todo, changed, gone = _assign_diff(rows)
+    todo = [r for r in rows if (r[0] or "") in ("未交", "未提交", "未完成")]
+    pend = [r for r in rows if (r[0] or "") == "待批阅"]
+
+    if new_todo:
+        print("## 新的未交（上次没有 / 状态变了）")
+        for title, due, prev, s_ in new_todo:
+            print(f"  + {title}" + (f" · 截止 {due}" if due else "")
+                  + (f" · 之前 {prev}" if prev else "") + f" · {s_}")
+    if changed:
+        print("## 状态变化")
+        for title, old, new in changed:
+            print(f"  ~ {title}：{old} → {new}")
+    if gone:
+        print(f"## 快照里消失：{len(gone)} 条")
+
+    print("## 仍需处理（未交 + 待批阅）")
+    for st, course, title, extra in todo + pend:
+        due = _assign_due((st, course, title, extra))
+        print(f"  {st} | {course} | {title} | {due.strftime('%Y-%m-%d %H:%M') if due else extra}")
+    print(f"—— 共 {len(rows)} 条：未交 {len(todo)}、待批阅 {len(pend)}、其余 {len(rows)-len(todo)-len(pend)} 已交"
+          + ("；本次无新增" if not (new_todo or changed) else ""))
+
+
+# ---------- 作业状态快照：只比对变化，不建任务 ----------
+ASSIGN_STATE = os.path.join(STATE_DIR, "assignments.json")
+
+
+def _assign_key(src, course, title):
+    return f"{src}|{course}|{title}"
+
+
+def _assign_src(row):
+    extra = row[3] or ""
+    if "未提交" in extra or ("已完成" in extra and "剩余" not in extra):
+        return "数你最灵"
+    return "学习通"
+
+
+def _assign_due(row, now=None):
+    """从 extra 抠截止：数你最灵是 'YYYY-MM-DD HH:MM …'，学习通是 '剩余N小时M分钟'。"""
+    import re as _re
+    from datetime import datetime as _dt, timedelta as _td
+    st, course, title, extra = row
+    now = now or _dt.now()
+    m = _re.search(r"(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})", extra or "")
+    if m:
+        return _dt.strptime(m.group(1) + " " + m.group(2), "%Y-%m-%d %H:%M")
+    m = _re.search(r"剩余(\d+)小时(\d+)分钟", extra or "")
+    if m:
+        return now + _td(hours=int(m.group(1)), minutes=int(m.group(2)))
+    return None
+
+
+def _assign_diff(rows):
+    """与上次快照比，返回 (新增未交, 状态变化, 消失)。只读，不动滴答。"""
+    from datetime import datetime as _dt
+    now = _dt.now()
+    st_map = json.load(io.open(ASSIGN_STATE, encoding="utf-8")) if os.path.isfile(ASSIGN_STATE) else {}
+    new_todo, changed, seen = [], [], set()
+    for row in rows:
+        src = _assign_src(row)
+        key = _assign_key(src, row[1], row[2])
+        seen.add(key)
+        status = row[0] or ""
+        due = _assign_due(row, now)
+        rec = st_map.get(key, {})
+        prev = rec.get("status")
+        todo = status in ("未交", "未提交", "未完成")
+        if todo and prev != status:
+            new_todo.append((row[2], due.strftime("%Y-%m-%d %H:%M") if due else "", prev, src))
+        elif prev and prev != status:
+            changed.append((row[2], prev, status))
+        rec.update({"status": status, "due": due.strftime("%Y-%m-%d %H:%M") if due else "",
+                    "extra": row[3], "seen": now.strftime("%Y-%m-%dT%H:%M:%S")})
+        st_map[key] = rec
+    gone = [k for k in st_map if k not in seen and st_map[k].get("status") in ("未交", "未提交", "未完成")]
+    for k in gone:
+        st_map[k]["status"] = "已消失"
+    json.dump(st_map, io.open(ASSIGN_STATE, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+    return new_todo, changed, gone
 
 
 def _xxt_script(name):
