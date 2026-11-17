@@ -21,7 +21,7 @@ with Browser(s, headed=False, timeout=30000) as b:
 for c in courses:
     row = {"title": c["title"], "id": c["id"], "count": None, "status": {}, "error": None}
     try:
-        s2 = Session(OUT / "state")
+        s2 = Session(PROJ / "state" / "xxt")
         with Browser(s2, headed=False, timeout=25000) as b2:
             data = b2.homework_list(c["url"], 5)
         items = data["items"]
