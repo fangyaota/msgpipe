@@ -394,6 +394,26 @@ cd /d/Workspace/msgpipe
 - 滴答没接也不影响出清单，只是不会自动建任务
 - `doctor` 的退出码：全部正常 `0`，有「待修」的线 `1`，方便放进定时任务里判断
 
+
+## 聊天图片（微信 4.x 的 .dat）
+
+微信 4.x 把聊天图片存成 `msg/attach/<会话md5>/YYYY-MM/Img/*.dat`，是 V2 格式：
+`[6B 签名][4B AES 段长度][4B XOR 段长度][1B 填充][AES-128-ECB 密文][明文][单字节 XOR 段]`。
+AES 密钥是账户级 16 字节，只在微信里打开过图片时驻留进程内存；XOR 密钥单字节，可从同一张图的缩略图结尾 `FF D9` 反推。
+
+```bash
+cd <项目目录>/tools/wechat-cli
+export PYTHONPATH="$USERPROFILE/.wechat-cli/deps"   # 复用已装好的依赖
+
+python entry.py images "A1Group5" -month 2026-11                # 先看有哪些
+python entry.py images "A1Group5" --key scan                    # 扫内存抓 AES 密钥（管理员权限，先看图）
+python entry.py images "A1Group5" --decrypt --out ./imgs        # 解密
+```
+
+- `--key scan` 需要管理员权限，且要**先在微信里点开看 2-3 张图**，密钥才会加载
+- 密钥存在 `%USERPROFILE%\.wechat-cli\image_key.txt`
+- 缩略图（`*_t.dat`）解出来是标准 JPEG；全尺寸图有些是 `.wxgf`（微信自己的表情/动图容器），需要另外转码
+
 ## 维护提示
 
 - 换机器 / 微信升级：先修 `~/.wechat-cli`（见 `docs/消息来源.md`）。

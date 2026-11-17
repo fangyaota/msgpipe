@@ -52,6 +52,7 @@ from .commands.contacts import contacts
 from .commands.new_messages import new_messages
 from .commands.members import members
 from .commands.export import export
+from .commands.images import images
 from .commands.stats import stats
 from .commands.unread import unread
 from .commands.favorites import favorites
@@ -64,6 +65,7 @@ cli.add_command(contacts)
 cli.add_command(new_messages)
 cli.add_command(members)
 cli.add_command(export)
+cli.add_command(images)
 cli.add_command(stats)
 cli.add_command(unread)
 cli.add_command(favorites)

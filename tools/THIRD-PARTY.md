@@ -12,3 +12,10 @@
 `skills/wechat-local` 与 `skills/wecom-local` 里的 `search_all.py`、`wecom.py` 同样源自上述项目。
 
 微信线用的 [wechat-cli-plus](https://github.com/maomao3334/wechat-cli-plus)（Apache-2.0）不随本仓库分发，按 README 第 3 步安装。
+
+### 我们在快照上加的（原代码未改）
+
+- `wechat_cli/core/datimg.py`、`wechat_cli/commands/images.py`：新增 `wechat-cli images` 子命令，
+  用于解密微信 4.x 的图片 `.dat`（V2 格式：AES-128-ECB 段 + 明文段 + 单字节 XOR 段）。
+  算法取自 [ZedeX/weixin-decrypte-script](https://github.com/ZedeX/weixin-decrypte-script)（MIT），精简重写。
+  改动仅在 `wechat_cli/main.py` 里加了一行 import 与一行 `cli.add_command(images)`。
