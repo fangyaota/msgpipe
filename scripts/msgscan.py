@@ -170,14 +170,24 @@ def wecom_rows(cutoff=None, limit=None):
     script = os.path.join(WECOM_SCRIPTS, "wecom.py")
     if not os.path.isfile(script):
         raise SystemExit(f"找不到 wecom.py：{script}")
+    env = {**os.environ,
+           "WECOM_LOCAL_HOME": os.path.join(PROJ, "state", "wecom"),
+           "PYTHONIOENCODING": "utf-8"}
+    # 企微线读的是解密缓存，而 WXWork 的库会一直变；不先 refresh 就会一直读到旧缓存。
+    if not os.environ.get("MSGPIPE_NO_WECOM_SYNC"):
+        r = subprocess.run([PY, script, "refresh"], capture_output=True,
+                           text=True, encoding="utf-8", errors="replace",
+                           env=env, timeout=180)
+        if r.returncode != 0:
+            print(f"[企微] refresh 失败，继续用旧缓存："
+                  f"{(r.stderr or r.stdout).strip()[:200]}", file=sys.stderr)
     cmd = [PY, script, "messages", "--offline", "--json", "--limit",
            str(limit or 5000)]
     if cutoff:
         cmd += ["--since", cutoff.strftime("%Y-%m-%d %H:%M:%S")]
     p = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
                        errors="replace",
-                       env={**os.environ, "WECOM_LOCAL_HOME": os.path.join(PROJ, "state", "wecom"),
-                            "PYTHONIOENCODING": "utf-8"})
+                       env=env)
     if p.returncode != 0:
         raise SystemExit(f"企业微信读取失败：{(p.stderr or p.stdout).strip()[:300]}")
     try:
