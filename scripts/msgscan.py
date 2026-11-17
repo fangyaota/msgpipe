@@ -21,6 +21,7 @@ import io
 import json
 import os
 import subprocess
+import time
 import shutil
 import sys
 from datetime import datetime
@@ -337,8 +338,34 @@ def _bsk(*args, timeout=90):
     return p.returncode, p.stdout, p.stderr
 
 
+def _bsk_bootstrap():
+    """bsk 守护进程空闲 600 秒会自己退出。在任务里 `bsk status` 想自动拉起会失败
+    （Job Object 限制，os error 5），这里用 DETACHED_PROCESS 起一个真正脱离的守护进程。"""
+    if not os.path.isfile(BSK):
+        return False
+    print("[bsk] 守护进程没在跑，后台拉起一个", file=sys.stderr)
+    env = dict(os.environ, BSK_AUTO_START="0")
+    flags = 0x00000008 | 0x00000200 | 0x08000000  # DETACHED | NEW_GROUP | NO_WINDOW
+    try:
+        subprocess.Popen([BSK, "daemon", "start", "--foreground"], env=env,
+                         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL, creationflags=flags, close_fds=True)
+    except Exception as exc:
+        print(f"[bsk] 拉起失败：{exc}", file=sys.stderr)
+        return False
+    for _ in range(10):
+        time.sleep(0.6)
+        rc, out, err = _bsk("status", "--json", timeout=15)
+        if rc == 0 and '"pid"' in (out or ""):
+            return True
+    return False
+
+
 def _bsk_json(*args, timeout=90):
     rc, out, err = _bsk(*args, timeout=timeout)
+    if rc != 0 and ("daemon" in (err or "") + (out or "") or rc == 2):
+        _bsk_bootstrap()
+        rc, out, err = _bsk(*args, timeout=timeout)
     txt = (out or "").strip()
     for cand in (txt, txt[txt.index("{"):] if "{" in txt else "", txt[txt.index("["):] if "[" in txt else ""):
         if not cand:
