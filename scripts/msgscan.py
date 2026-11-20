@@ -10,7 +10,7 @@
   sessions [--since AT]       各会话条数与最后时间
   since --at AT               断点之后的消息（AT 省略则用状态文件里的水位）
   search KW [--since AT]      关键词检索
-  assignments [--refresh]     学习通作业/试卷（表格输出，列不同）
+  assignments [--no-refresh]  学习通 + 数你最灵作业（默认每次巡检；--no-refresh 读旧报告）
   advance --at AT             把水位推进到 AT
 
 通用参数：--source wechat,wecom / --limit N / --json
@@ -263,14 +263,14 @@ def xxt_assignments(refresh=False):
         if p.returncode != 0:
             raise SystemExit(f"学习通巡检失败：{(p.stderr or p.stdout).strip()[:300]}")
     if not os.path.isfile(XXT_REPORT):
-        raise SystemExit(f"还没有巡检结果，先跑：msgscan assignments --refresh")
+        raise SystemExit("还没有巡检结果，先跑：msgscan assignments")
     with open(XXT_REPORT, encoding="utf-8") as f:
         rep = json.load(f)
     rows = []
     courses = rep if isinstance(rep, list) else (rep.get("courses") or [])
     if courses and all(c.get("error") for c in courses):
         raise SystemExit("学习通登录态失效（14 门课全部 AUTH_REQUIRED）："
-                         "跑 tools\\xxt\\xxt.cmd auth --headed 扫一次码，再 assignments --refresh")
+                         "跑 tools\\xxt\\xxt.cmd auth --headed 扫一次码，再跑 assignments")
     for c in courses:
         cname = c.get("title") or c.get("course") or c.get("name") or ""
         for h in c.get("detail") or c.get("homeworks") or []:
@@ -680,7 +680,7 @@ def cmd_doctor(a):
 
     # 学习通作业
     if not os.path.isfile(XXT_REPORT):
-        line("学习通作业", "skip", "还没巡检过", "scripts\\msgscan.cmd assignments --refresh --source xxt")
+        line("学习通作业", "skip", "还没巡检过", "scripts\\msgscan.cmd assignments --source xxt")
     else:
         line("学习通作业", "ok", "有巡检报告", "")
 
@@ -750,7 +750,7 @@ def cmd_sources(a):
         except SystemExit as e:
             print(f"{s}: 不可用 — {e}")
     print("— 作业线 —")
-    print(f"xxt: {'OK（报告在 ' + XXT_REPORT + '）' if os.path.isfile(XXT_REPORT) else '不可用 — 没有巡检报告，先跑 assignments --refresh'}")
+    print(f"xxt: {'OK（报告在 ' + XXT_REPORT + '）' if os.path.isfile(XXT_REPORT) else '不可用 — 没有巡检报告，先跑 assignments'}")
     # 数你最灵：只看登录态，不联网
     if os.path.isfile(BSK):
         print("smartestu: OK（走 bsk，用 Edge 里已登录的会话）")
@@ -825,7 +825,7 @@ def cmd_assignments(a):
     rows = []
     if src in ("all", "xxt"):
         try:
-            rows += xxt_assignments(a.refresh)
+            rows += xxt_assignments(not a.no_refresh)
         except SystemExit as e:
             print(f"[跳过 学习通] {e}", file=sys.stderr)
     if src in ("all", "smartestu"):
@@ -834,7 +834,7 @@ def cmd_assignments(a):
         except SystemExit as e:
             print(f"[跳过 数你最灵] {e}", file=sys.stderr)
     if not rows:
-        print("（两条作业线都没读到：学习通需要先 --refresh 巡检，数你最灵需要先 --login）\n"
+        print("（两条作业线都没读到：学习通可能需要重新扫码登录，数你最灵可能需要 --login）\n"
               "  跑 `msgscan.cmd doctor` 看具体缺什么", file=sys.stderr)
         return
 
@@ -1019,7 +1019,9 @@ def main():
     p.set_defaults(func=cmd_search)
 
     p = sub.add_parser("assignments", help="学习通作业状态")
-    p.add_argument("--refresh", action="store_true", help="学习通重新巡检")
+    p.add_argument("--refresh", action="store_true", help=argparse.SUPPRESS)
+    p.add_argument("--no-refresh", dest="no_refresh", action="store_true",
+                   help="跳过学习通巡检，直接用上次的报告（默认每次都巡检）")
     p.add_argument("--source", default="all",
                    help="all | xxt | smartestu（默认 both；数你最灵会开一个可见的 Agent 窗口，约 10 秒）")
     p.set_defaults(func=cmd_assignments)
