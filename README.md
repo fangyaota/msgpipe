@@ -412,7 +412,9 @@ python entry.py images "A1Group5" --decrypt --out ./imgs        # 解密
 
 - `--key scan` 需要管理员权限，且要**先在微信里点开看 2-3 张图**，密钥才会加载
 - 密钥存在 `%USERPROFILE%\.wechat-cli\image_key.txt`
-- 缩略图（`*_t.dat`）解出来是标准 JPEG；全尺寸图有些是 `.wxgf`（微信自己的表情/动图容器），需要另外转码
+- 缩略图（`*_t.dat`）解出来是标准 JPEG；全尺寸图有些是 `.wxgf`（微信自己的容器），需要另外转码
+- **关于 `.wxgf` 能否用 ffmpeg 解（2026-11-21 实测结论：不行）**：按 [ppwwyyxx/wechat-dump](https://github.com/ppwwyyxx/wechat-dump) 的 `wechat/wxgf.py` 做了同款尝试——`wxgf` 头之后确实是一段 Annex-B HEVC（`00 00 00 01 40 01` VPS、`42 01` SPS、`44 01` PPS、`26 01` IDR 各一处，SPS 能解析出 1080×1920），但用 `ffmpeg -f hevc` 解出来是满屏噪点：多数帧 0 报错、部分帧报 `PPS id out of range` / `Skipping invalid undecodable NALU`。即容器结构是真的、**切片数据被微信自己处理过**（其 Android 解码 App `WXGFDecoder` 依赖从微信 APK 抽出的 `libwechatcommon.so`/`libcommonimgdec.so`，且只有 arm64-v8a）。
+- 结论：全尺寸 `.wxgf` 在 PC 上无可靠解法，**以缩略图为准**；要读原图直接在微信里点开看。`tools/wechat-cli` 的 `images` 子命令因此只输出 `*_t.jpg`（+ 原样保留 `.wxgf`），不假装能转码。
 
 ## 维护提示
 
