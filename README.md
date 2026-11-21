@@ -413,8 +413,9 @@ python entry.py images "A1Group5" --decrypt --out ./imgs        # 解密
 - `--key scan` 需要管理员权限，且要**先在微信里点开看 2-3 张图**，密钥才会加载
 - 密钥存在 `%USERPROFILE%\.wechat-cli\image_key.txt`
 - 缩略图（`*_t.dat`）解出来是标准 JPEG；全尺寸图有些是 `.wxgf`（微信自己的容器），需要另外转码
-- **关于 `.wxgf` 能否用 ffmpeg 解（2026-11-21 实测结论：不行）**：按 [ppwwyyxx/wechat-dump](https://github.com/ppwwyyxx/wechat-dump) 的 `wechat/wxgf.py` 做了同款尝试——`wxgf` 头之后确实是一段 Annex-B HEVC（`00 00 00 01 40 01` VPS、`42 01` SPS、`44 01` PPS、`26 01` IDR 各一处，SPS 能解析出 1080×1920），但用 `ffmpeg -f hevc` 解出来是满屏噪点：多数帧 0 报错、部分帧报 `PPS id out of range` / `Skipping invalid undecodable NALU`。即容器结构是真的、**切片数据被微信自己处理过**（其 Android 解码 App `WXGFDecoder` 依赖从微信 APK 抽出的 `libwechatcommon.so`/`libcommonimgdec.so`，且只有 arm64-v8a）。
-- 结论：全尺寸 `.wxgf` 在 PC 上无可靠解法，**以缩略图为准**；要读原图直接在微信里点开看。`tools/wechat-cli` 的 `images` 子命令因此只输出 `*_t.jpg`（+ 原样保留 `.wxgf`），不假装能转码。
+- **`.wxgf` 现在能解了（2026-11-21 修好）**：走 [sjzar/chatlog](https://github.com/sjzar/chatlog) 的思路——`wxgf` 第 5 字节是头部长度，之后每个 NAL 前有 4 字节大端长度，取**最大那个 partition** 交给 ffmpeg 解成 JPEG（`pkg/util/dat2img/wxgf.go` 的静态图分支）。
+- **之前解出满屏噪点的真正原因不在 wxgf，而在 `.dat` 解密错位 16 字节**：AES 段实际要从 `aes_size` 向上取整到 16 的倍数**再多一块 padding**（chatlog 的 `aes_size/16*16 + 16`）。按 `aes_size` 原值切，头部 VPS/SPS 还是对的、后面的切片全废——这正是我当时看到「SPS 能解析、画面是噪点」的原因，跟微信是否「加了密」无关。
+- 现在 `images --decrypt` 会自动：`.dat` → wxgf → JPEG，直接出全尺寸 `.jpg`；ffmpeg 用系统的，没有就自动用 `pip install imageio-ffmpeg` 带的那个。多帧/带蒙版的 wxam（表情、动图）暂不支持，会原样留 `.wxgf`。
 
 ## 维护提示
 

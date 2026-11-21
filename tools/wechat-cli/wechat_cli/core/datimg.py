@@ -71,15 +71,19 @@ def decrypt_v2(path, aes_key, xor_key, out_path):
     aes_size, xor_size = struct.unpack("<II", data[6:14])
     aes_size = aes_size or DEFAULT_AES_SIZE
     body = data[HEADER_SIZE:]
-    aes_part = body[:aes_size]
-    rest = body[aes_size:]
-    xor_part = rest[len(rest) - xor_size:] if xor_size else b""
-    middle = rest[:len(rest) - len(xor_part)]
+
+    # 注意：AES 段实际长度是「aes_size 向上取整到 16 的倍数，再补一个 16 字节的 padding 块」。
+    # 用 aes_size 原值去切会整体错位 16 字节，解出来的 wxgf 只剩头部 NAL 是对的、
+    # 后面的切片全是噪点（2026-11-21 用 sjzar/chatlog 的 dat2img 实现核对出来的坑）。
+    aes_block = min(aes_size // 16 * 16 + 16, len(body))
+    middle_end = len(body) - xor_size if xor_size else len(body)
 
     from Crypto.Cipher import AES
-    plain_aes = AES.new(aes_key.encode("ascii"), AES.MODE_ECB).decrypt(
-        aes_part[: len(aes_part) // 16 * 16]
-    )
+    plain_aes = AES.new(aes_key.encode("ascii"), AES.MODE_ECB).decrypt(body[:aes_block])
+    plain_aes = plain_aes[:aes_size]
+
+    middle = body[aes_block:middle_end] if aes_block < middle_end else b""
+    xor_part = body[middle_end:] if middle_end < len(body) else b""
     if xor_key is None:
         xor_key = 0x00
     plain_xor = bytes(b ^ xor_key for b in xor_part)
@@ -254,3 +258,67 @@ def save_image_key(cfg, key):
     with open(p, "w", encoding="utf-8") as f:
         f.write(key.strip())
     return p
+
+
+WXGF_HEAD = b"wxgf"
+
+
+def wxgf_partitions(data):
+    """照 sjzar/chatlog 的 findDataPartition：每个 NAL 前面有 4 字节大端长度。"""
+    if len(data) < 15 or not data.startswith(WXGF_HEAD):
+        return []
+    header_len = data[4]
+    out, off = [], 0
+    while True:
+        i = data.find(b"\x00\x00\x00\x01", header_len + off)
+        if i < 0:
+            break
+        length = int.from_bytes(data[i - 4:i], "big")
+        if 0 < length and i + length <= len(data):
+            out.append((i, length))
+            off = i + length - header_len
+        else:
+            off = i + 1 - header_len
+    return out
+
+
+def _ffmpeg_exe():
+    for name in ("ffmpeg",):
+        from shutil import which
+        p = which(name)
+        if p:
+            return p
+    try:
+        import imageio_ffmpeg
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:
+        return None
+
+
+def wxgf_to_image(data, timeout=60):
+    """把 wxgf 解成 JPEG 字节；解不了返回 None。
+
+    只取最大的那个 partition 交给 ffmpeg，等价于 chatlog 的
+    `Wxam2pic`（静态图分支）。多帧/带蒙版的 wxam 暂不支持。
+    """
+    if not data.startswith(WXGF_HEAD):
+        return None
+    ff = _ffmpeg_exe()
+    if not ff:
+        return None
+    parts = wxgf_partitions(data)
+    if not parts:
+        return None
+    off, size = max(parts, key=lambda x: x[1])
+    chunk = data[off:off + size]
+    try:
+        r = subprocess.run(
+            [ff, "-hide_banner", "-loglevel", "error", "-f", "hevc", "-i", "pipe:0",
+             "-frames:v", "1", "-c:v", "mjpeg", "-q:v", "3", "-f", "image2", "pipe:1"],
+            input=chunk, capture_output=True, timeout=timeout,
+        )
+    except Exception:
+        return None
+    if r.returncode != 0 or not r.stdout.startswith(b"\xff\xd8"):
+        return None
+    return r.stdout

@@ -19,3 +19,8 @@
   用于解密微信 4.x 的图片 `.dat`（V2 格式：AES-128-ECB 段 + 明文段 + 单字节 XOR 段）。
   算法取自 [ZedeX/weixin-decrypte-script](https://github.com/ZedeX/weixin-decrypte-script)（MIT），精简重写。
   改动仅在 `wechat_cli/main.py` 里加了一行 import 与一行 `cli.add_command(images)`。
+
+## sjzar/chatlog（MIT）
+
+- 用到的部分：`pkg/util/dat2img/dat2img.go` 的 V4 解密布局（AES 段长度按 16 取整再加一块 padding）、`pkg/util/dat2img/wxgf.go` 的 partition 切分与 ffmpeg 静态图解码思路。
+- 我们的实现：`tools/wechat-cli/wechat_cli/core/datimg.py` 的 `decrypt_v2`（修正错位）与 `wxgf_partitions` / `wxgf_to_image`（Python 重写，只做单帧静态图）。

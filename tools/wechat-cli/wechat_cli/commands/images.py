@@ -108,9 +108,19 @@ def images(ctx, chat_name, do_decrypt, out_dir, month, thumb_only, key_action, k
         try:
             datimg.decrypt_v2(p, aes_key, xor_key, tmp)
             with open(tmp, "rb") as f:
-                ext = datimg.guess_ext(f.read(8))
+                blob = f.read()
+            if blob.startswith(datimg.WXGF_HEAD):
+                jpg = datimg.wxgf_to_image(blob)
+                if jpg:                      # wxgf 解成真 JPEG
+                    blob, ext = jpg, ".jpg"
+                else:                        # 解不了就原样留 .wxgf
+                    ext = ".wxgf"
+            else:
+                ext = datimg.guess_ext(blob[:8])
             final = os.path.join(out_dir, base + ext)
-            os.replace(tmp, final)
+            with open(final, "wb") as f:
+                f.write(blob)
+            os.remove(tmp)
             ok += 1
         except Exception as exc:
             failed += 1
@@ -119,4 +129,4 @@ def images(ctx, chat_name, do_decrypt, out_dir, month, thumb_only, key_action, k
             click.echo("  失败 %s: %s" % (os.path.basename(p), exc), err=True)
     click.echo("解密完成：成功 %d，失败 %d，输出到 %s" % (ok, failed, out_dir))
     if failed:
-        click.echo("提示：全尺寸图可能解成 .wxgf 容器（微信表情/动图格式），缩略图才是标准 JPEG", err=True)
+        click.echo("提示：部分图需要微信原生解码；wxgf 用 ffmpeg（装 imageio-ffmpeg 即可）解，解不了会原样留 .wxgf", err=True)
