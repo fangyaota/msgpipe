@@ -415,6 +415,7 @@ python entry.py images "A1Group5" --decrypt --out ./imgs        # 解密
 - 缩略图（`*_t.dat`）解出来是标准 JPEG；全尺寸图有些是 `.wxgf`（微信自己的容器），需要另外转码
 - **`.wxgf` 现在能解了（2026-11-21 修好）**：走 [sjzar/chatlog](https://github.com/sjzar/chatlog) 的思路——`wxgf` 第 5 字节是头部长度，之后每个 NAL 前有 4 字节大端长度，取**最大那个 partition** 交给 ffmpeg 解成 JPEG（`pkg/util/dat2img/wxgf.go` 的静态图分支）。
 - **之前解出满屏噪点的真正原因不在 wxgf，而在 `.dat` 解密错位 16 字节**：AES 段实际要从 `aes_size` 向上取整到 16 的倍数**再多一块 padding**（chatlog 的 `aes_size/16*16 + 16`）。按 `aes_size` 原值切，头部 VPS/SPS 还是对的、后面的切片全废——这正是我当时看到「SPS 能解析、画面是噪点」的原因，跟微信是否「加了密」无关。
+- XOR 键也自动判定：单字节密钥存在 `~/.wechat-cli/image_xor.txt`（本账号 0x02）。判定方式是「用这条 .dat 自己解一遍，看结果是张像样的照片还是纯色失败帧」——因为键错时 ffmpeg 照样吐 JPEG，只是整幅接近纯色（标准差 <10、相邻像素差 ~1），照片则是 40+/9~12。
 - 现在 `images --decrypt` 会自动：`.dat` → wxgf → JPEG，直接出全尺寸 `.jpg`；ffmpeg 用系统的，没有就自动用 `pip install imageio-ffmpeg` 带的那个。多帧/带蒙版的 wxam（表情、动图）暂不支持，会原样留 `.wxgf`。
 
 ## 维护提示

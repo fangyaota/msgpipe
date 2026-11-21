@@ -100,9 +100,8 @@ def images(ctx, chat_name, do_decrypt, out_dir, month, thumb_only, key_action, k
     ok = failed = 0
     for p, _, _ in items:
         thumb = p[:-4] + "_t.dat"
-        xor_key = datimg.xor_key_from_thumb(thumb) if os.path.isfile(thumb) else None
-        if xor_key is None:
-            xor_key = datimg.xor_key_from_thumb(p)
+        probe = thumb if os.path.isfile(thumb) else p
+        xor_key = datimg.pick_xor_key(probe, aes_key)
         base = os.path.splitext(os.path.basename(p))[0]
         tmp = os.path.join(out_dir, base + ".raw")
         try:

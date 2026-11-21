@@ -62,6 +62,98 @@ def xor_key_from_thumb(thumb_path):
     return key if (y ^ 0xD9) == key else key
 
 
+DEFAULT_XOR_KEY = 0x02       # 本账号实测；不同账号可能不同，见 image_xor.txt
+
+
+def xor_key_file(aes_key_path=None):
+    base = aes_key_path or os.path.join(os.path.expanduser("~"), ".wechat-cli")
+    return os.path.join(base, "image_xor.txt")
+
+
+def load_xor_key(aes_key_path=None):
+    try:
+        with open(xor_key_file(aes_key_path), "r", encoding="utf-8") as f:
+            return int(f.read().strip(), 0)
+    except Exception:
+        return None
+
+
+def save_xor_key(key, aes_key_path=None):
+    try:
+        with open(xor_key_file(aes_key_path), "w", encoding="utf-8") as f:
+            f.write("0x%02x" % key)
+    except Exception:
+        pass
+
+
+def _decode_quality(blob):
+    """解出来是「真图像」还是「解崩的色块」：返回 (std, 局部差异)，解不出返回 None。
+
+    判据来自实测：XOR 键错时 ffmpeg 也能吐 JPEG，但整幅是接近纯色的失败帧（标准差 <10、
+    相邻像素差 ~1）；正常照片标准差 40+、相邻像素差 9~12；噪点则两者都很高。
+    """
+    jpg = wxgf_to_image(blob) if blob.startswith(WXGF_HEAD) else blob
+    if not jpg:
+        return None
+    try:
+        import io as _io
+        from PIL import Image
+        im = Image.open(_io.BytesIO(jpg)).convert("L").resize((216, 384))
+        px = list(im.getdata())
+        w = 216
+        n = len(px)
+        mean = sum(px) / n
+        std = (sum((v - mean) ** 2 for v in px) / n) ** 0.5
+        diffs = [abs(px[i] - px[i + 1]) for i in range(n - 1) if (i + 1) % w]
+        return std, (sum(diffs) / len(diffs) if diffs else 0.0)
+    except Exception:
+        return None
+
+
+def validate_xor_key(dat_path, aes_key, key):
+    """用这条 .dat 自己验证：解出来应该是一张「像样的图」，而不是纯色失败帧。"""
+    import tempfile
+    tmp = os.path.join(tempfile.gettempdir(), "wxprobe.dat")
+    try:
+        decrypt_v2(dat_path, aes_key, key, tmp)
+        with open(tmp, "rb") as f:
+            blob = f.read()
+        q = _decode_quality(blob)
+        if q is None:
+            return False
+        std, diff = q
+        return std >= 15 and diff >= 2
+    except Exception:
+        return False
+    finally:
+        if os.path.exists(tmp):
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
+
+
+def pick_xor_key(dat_path, aes_key):
+    """依次试：存档值 → 缩略图反推 → 0x02 → 0x37，用缩略图能否解成 JPEG 来判定。"""
+    cands = []
+    stored = load_xor_key()
+    if stored is not None:
+        cands.append(stored)
+    hint = xor_key_from_thumb(dat_path)
+    if hint is not None:
+        cands.append(hint)
+    cands += [DEFAULT_XOR_KEY, 0x37]
+    seen = set()
+    for k in cands:
+        if k in seen:
+            continue
+        seen.add(k)
+        if validate_xor_key(dat_path, aes_key, k):
+            save_xor_key(k)
+            return k
+    return stored if stored is not None else DEFAULT_XOR_KEY
+
+
 def decrypt_v2(path, aes_key, xor_key, out_path):
     """解密一个 V2 .dat，写出并返回输出路径；失败抛 ValueError。"""
     with open(path, "rb") as f:
